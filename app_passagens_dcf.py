@@ -1,8 +1,6 @@
-
 # 1. IMPORTS
 # ----------------------------------------
 
-# Corrigindo a importação de Dash
 from dash import Dash, html, dcc, Input, Output, State, dash_table
 import plotly.express as px
 import pandas as pd
@@ -73,20 +71,17 @@ def carregar_dados():
 
 df = carregar_dados()
 
-
 # ----------------------------------------
 # 3. APLICATIVO DASH
 # ----------------------------------------
-
 
 nomes_meses = [
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
 ]
 
-
 # ----------------------------------------
-# 4. LAYOUT — COLUNA ESQUERDA FIXA
+# 4. LAYOUT — COLUNA ESQUERDA (original)
 # ----------------------------------------
 
 app.layout = html.Div([
@@ -158,8 +153,7 @@ app.layout = html.Div([
                 "overflow": "auto"
             }),
 
-        # -------- COLUNA DIREITA (continuada na PARTE 2) --------
-        # -------- COLUNA DIREITA — CONTEÚDO ROLÁVEL --------
+        # -------- COLUNA DIREITA --------
         html.Div([
 
             html.H2("Gastos com Viagens", style={"textAlign": "center"}),
@@ -250,12 +244,13 @@ app.layout = html.Div([
 
     ], style={"display": "flex"}),
 
-    # Store usado pelo PDF
     dcc.Store(id="store_graficos")
 ])
+
 # ----------------------------------------
-# 5. CALLBACK — Atualização geral (cards, gráficos, tabela resumo)
+# 5. CALLBACK — Atualização geral
 # ----------------------------------------
+
 
 @app.callback(
     [
@@ -294,8 +289,23 @@ def atualizar_pagina(ano, mes, unidade):
 
     def card(titulo, valor):
         return html.Div([
-            html.Div(titulo, style={"fontSize": "12px", "color": "#555", "textAlign": "center"}),
-            html.Div(f(valor), style={"fontSize": "18px", "fontWeight": "bold", "color": "#b30000", "textAlign": "center"})
+            html.Div(
+                titulo,
+                style={
+                    "fontSize": "14px",
+                    "color": "#555",
+                    "textAlign": "center"
+                }
+            ),
+            html.Div(
+                f(valor),
+                style={
+                    "fontSize": "22px",
+                    "fontWeight": "bold",
+                    "color": "#b30000",
+                    "textAlign": "center"
+                }
+            )
         ],
             style={
                 "backgroundColor": "white",
@@ -316,7 +326,7 @@ def atualizar_pagina(ano, mes, unidade):
         card("Restituições", total_restit),
     ]
 
-    # --- Pizza ---
+    # --- Pizza (valores centralizados) ---
     pizza_df = pd.DataFrame({
         "Tipo": ["No prazo", "Urgência"],
         "Valor": [total_prazo, total_urgencia]
@@ -331,24 +341,35 @@ def atualizar_pagina(ano, mes, unidade):
         title="Passagens — No prazo x Urgência"
     )
     fig_pizza.update_layout(title_x=0.5)
+    fig_pizza.update_traces(
+        texttemplate="<b>%{label}</b><br>R$ %{value:,.2f}<br>(%{percent})",
+        textposition="inside"
+    )  # [web:22][web:58]
 
-    # --- Barras ---
+    # --- Barras (valores centralizados dentro da barra) ---
     barras_df = pd.DataFrame({
         "Categoria": ["Diárias", "Passagens"],
         "Valor": [total_diarias, total_passagem]
     })
-    barras_df["Texto"] = barras_df["Valor"].apply(f)
-
     fig_barras = px.bar(
         barras_df,
         x="Categoria",
         y="Valor",
-        text="Texto",
         color="Categoria",
         color_discrete_sequence=["#003A70", "#DA291C"],
-        title="Comparativo: Diárias x Passagens"
+        title="Comparativo: Diárias x Passagens",
+        text="Valor"
     )
-    fig_barras.update_layout(title_x=0.5, showlegend=False)
+    fig_barras.update_traces(
+        texttemplate="R$ %{y:,.2f}",
+        textposition="inside"
+    )  # [web:32][web:55][web:61]
+    fig_barras.update_layout(
+        title_x=0.5,
+        showlegend=False,
+        yaxis_tickprefix="R$ ",
+        yaxis_tickformat=",.2f"
+    )
 
     # --- Resumo unidade ---
     resumo = (
@@ -377,8 +398,9 @@ def atualizar_pagina(ano, mes, unidade):
 
 
 # ----------------------------------------
-# 6. CALLBACK — Tabela de Detalhamento (somente filtros)
+# 6. CALLBACK — Tabela de Detalhamento
 # ----------------------------------------
+
 
 @app.callback(
     Output("tabela_detalhe", "data"),
@@ -428,6 +450,7 @@ def atualizar_detalhe(ano, mes, unidade):
 # 7. CALLBACK — Limpar filtros
 # ----------------------------------------
 
+
 @app.callback(
     [
         Output("filtro_ano", "value"),
@@ -440,19 +463,18 @@ def atualizar_detalhe(ano, mes, unidade):
 def limpar(n):
     return 2025, None, None
 
-# ----------------------------------------
-# 8. CALLBACK — Geração do PDF COMPLETO (com DUAS tabelas)
-# ----------------------------------------
-from reportlab.platypus import Paragraph
-from reportlab.lib.styles import ParagraphStyle
 
-# Estilo para quebra de linha automática
+# ----------------------------------------
+# 8. CALLBACK — Geração do PDF (sem gráficos, com cards)
+# ----------------------------------------
+
 wrap_style = ParagraphStyle(
     name="wrap",
     fontSize=8,
     leading=10,
     spaceAfter=4
 )
+
 
 def wrap(text):
     return Paragraph(str(text), wrap_style)
@@ -473,10 +495,6 @@ def wrap(text):
 def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
     if not n:
         return None
-
-    # Converter gráficos para PNG
-    img_pizza = BytesIO(pio.to_image(fig_pizza, format="png", width=450, height=350))
-    img_barras = BytesIO(pio.to_image(fig_barras, format="png", width=450, height=350))
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -502,9 +520,30 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
     ))
     story.append(Spacer(1, 0.3 * inch))
 
-    # Gráficos
-    story.append(Image(img_pizza, width=250, height=200))
-    story.append(Image(img_barras, width=250, height=200))
+    # --- CARDS NO PDF (sem gráficos) ---
+    cards_vals = dados_pdf["cards"]
+
+    def fmt(v):
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    cards_data = [
+        ["Total Viagens", fmt(cards_vals["total_viagem"])],
+        ["Passagens no Prazo", fmt(cards_vals["total_prazo"])],
+        ["Passagens Urgência", fmt(cards_vals["total_urgencia"])],
+        ["Gasto em Diárias", fmt(cards_vals["total_diarias"])],
+        ["Seguro Viagem", fmt(cards_vals["total_seguro"])],
+        ["Restituições", fmt(cards_vals["total_restit"])],
+    ]
+
+    tbl_cards = Table(cards_data, colWidths=[3.0 * inch, 3.0 * inch])
+    tbl_cards.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#0b2b57")),
+    ]))  # [web:44][web:63]
+    story.append(tbl_cards)
     story.append(Spacer(1, 0.4 * inch))
 
     # Resumo por unidade
@@ -520,7 +559,6 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
             wrap(r["Valor Seguro Viagem"]),
         ])
 
-    # Larguras da tabela 1
     col_widths1 = [
         2.8 * inch,
         1.0 * inch,
@@ -530,7 +568,6 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
     ]
 
     tbl1 = Table(table1, colWidths=col_widths1)
-
     tbl1.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -539,7 +576,6 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("WORDWRAP", (0, 0), (-1, -1), True),
     ]))
-
     story.append(tbl1)
     story.append(Spacer(1, 0.5 * inch))
 
@@ -556,7 +592,6 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
             wrap(r["Custo com emissão de passagens em caráter de urgência"]),
         ])
 
-    # Larguras da tabela 2
     col_widths2 = [
         2.8 * inch,
         1.0 * inch,
@@ -566,7 +601,6 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
     ]
 
     tbl2 = Table(table2, colWidths=col_widths2)
-
     tbl2.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003A70")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -576,7 +610,6 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
         ("WORDWRAP", (0, 0), (-1, -1), True),
         ("FONTSIZE", (0, 0), (-1, -1), 8)
     ]))
-
     story.append(tbl2)
 
     # Finaliza PDF
