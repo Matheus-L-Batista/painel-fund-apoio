@@ -42,6 +42,20 @@ app.layout = html.Div(
                         html.Br(),
 
                         dcc.Link(
+                            "Execução Orçamento UNIFEI",
+                            href="/execucao-orcamento-unifei",
+                            refresh=True
+                        ),
+                        html.Br(),
+
+                        dcc.Link(
+                            "Naturezas Despesa 2024",
+                            href="/natureza-despesa-2024",
+                            refresh=True
+                        ),
+                        html.Br(),
+
+                        dcc.Link(
                             "Execução TED",
                             href="/execucao-ted",
                             refresh=True
