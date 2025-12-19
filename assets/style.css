@@ -92,7 +92,7 @@ html, body {
   transform: translateY(-1px);
 }
 
-/* Estado ativo: fundo branco + texto azul, como no exemplo */
+/* Estado ativo */
 .sidebar-button-active,
 .sidebar-button-active:link,
 .sidebar-button-active:visited {
@@ -102,7 +102,6 @@ html, body {
   font-weight: 600;
 }
 
-/* Evita animação extra quando já está ativo */
 .sidebar-button-active:hover {
   background: #ffffff;
   color: #0b2b57 !important;
@@ -170,25 +169,58 @@ html, body {
   margin-bottom: 25px;
 }
 
-/* Dropdowns (componentes Select do Dash) */
-.Select-control,
+/* ========================= */
+/* Dropdowns (Dash Select)   */
+/* ========================= */
+
+/* Container principal do select */
+.Select {
+  width: 100%;
+}
+
+/* Caixa fechada do select */
+.Select-control {
+  background-color: white !important;
+  color: black !important;
+  min-height: 34px;
+  border-radius: 2px !important;
+  border: 1px solid #ccc !important;
+  box-shadow: none !important;
+}
+
+/* Evita sobreposição: quebra de texto */
+.Select-control .Select-value,
+.Select-control .Select-placeholder,
+.Select-control .Select-input > input {
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+/* Menu aberto */
 .Select-menu-outer {
   background-color: white !important;
   color: black !important;
-}
-
-.Select-menu-outer {
   max-height: 260px;
-  overflow-y: auto;
+  overflow-y: auto;           /* UMA barra de rolagem */
   border-radius: 0;
   box-shadow: 0 0 3px rgba(0,0,0,0.3);
   white-space: normal;
 }
 
+/* Opções */
 .Select-option {
   padding: 10px 8px;
   line-height: 1.4;
   white-space: normal;
+  word-break: break-word;
+}
+
+.Select-option.is-focused {
+  background-color: #e6f0ff;
+}
+
+.Select-option.is-selected {
+  background-color: #c8daf7;
 }
 
 /* Cor da seleção de texto */
@@ -202,7 +234,7 @@ html, body {
   color: #ffffff;
 }
 
-/* Botões de filtros dentro do conteúdo (não na sidebar) */
+/* Botões de filtros dentro do conteúdo */
 .filtros-button {
   display: inline-block;
   padding: 8px 18px;
