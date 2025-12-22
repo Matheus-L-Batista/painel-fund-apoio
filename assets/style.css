@@ -7,11 +7,11 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* nunca rolar no body */
+    overflow: hidden;
 }
 
 #_dash-app-content {
-    height: 100vh;
+    height: 100%;
     overflow: hidden;
 }
 
@@ -25,31 +25,29 @@ html, body {
     overflow: hidden;
 }
 
-/* Container principal do app */
 .app-container {
     display: flex;
+    width: 100%;
     height: 100vh;
     overflow: hidden;
 }
 
 /* ========================= */
-/* SIDEBAR                   */
+/* SIDEBAR (FLEX, NÃO FIXA)  */
 /* ========================= */
 
 .sidebar {
     width: 320px;
-    height: 100vh;
+    height: 100%;
     padding: 24px 20px;
     background-color: #0b2b57;
     color: white;
 
-    position: fixed;
-    top: 0;
-    left: 0;
+    /* REMOVIDO: position fixed */
+    overflow: hidden;
 
-    overflow: hidden; /* sidebar NÃO rola */
     box-sizing: border-box;
-    z-index: 1000;
+    flex-shrink: 0;
 }
 
 .sidebar-header {
@@ -112,10 +110,8 @@ html, body {
 /* CONTEÚDO PRINCIPAL        */
 /* ========================= */
 
-/* Área de conteúdo */
 .main-content {
-    margin-left: 320px;
-    width: calc(100% - 320px);
+    flex: 1;
     height: 100%;
     padding: 15px;
 
@@ -125,8 +121,6 @@ html, body {
     overflow-x: hidden;
 
     box-sizing: border-box;
-    position: relative;
-    z-index: 1;
 }
 
 /* Wrapper interno do Dash Pages */
@@ -139,10 +133,11 @@ html, body {
 /* ========================= */
 
 .home-container {
-    min-height: 100vh;
+    min-height: 100%;
     width: 100%;
+
     background-image: url("/assets/bg_unifei.png");
-    background-size: center;
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
 
@@ -217,7 +212,7 @@ html, body {
     background-color: white !important;
     color: black !important;
     max-height: 260px;
-    overflow-y: auto; /* scroll só no dropdown */
+    overflow-y: auto;
     box-shadow: 0 0 3px rgba(0,0,0,0.3);
 }
 
@@ -227,7 +222,7 @@ html, body {
 }
 
 /* ========================= */
-/* LIMPEZA DE SCROLL FANTASMA */
+/* LIMPEZA FINAL DE OVERFLOW */
 /* ========================= */
 
 .dash-table-container {
