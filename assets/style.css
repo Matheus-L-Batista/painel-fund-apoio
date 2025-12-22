@@ -252,3 +252,36 @@ html, body {
   background-color: #0b2b57;
   color: #ffffff;
 }
+
+.home-container {
+    min-height: 80vh;
+    width: 100%;
+    background-image: url("/assets/bg_unifei.png");
+    background-size: center;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Remove scroll duplicado */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* Container principal do app */
+.app-container {
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Área de conteúdo */
+.main-content {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
