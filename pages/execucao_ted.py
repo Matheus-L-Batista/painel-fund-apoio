@@ -20,6 +20,7 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib import colors
+import datetime as dt
 
 
 # --------------------------------------------------
@@ -75,8 +76,9 @@ def carregar_dados():
     return df
 
 
-df = carregar_dados()
-ANO_PADRAO = int(sorted(df["Ano"].dropna().unique())[-1])
+# DF base global (apenas cache, recarregado pelo Interval)
+df_base = carregar_dados()
+ANO_PADRAO = int(sorted(df_base["Ano"].dropna().unique())[-1])
 
 dropdown_style = {
     "color": "black",
@@ -117,7 +119,7 @@ layout = html.Div(
                                     options=[
                                         {"label": u, "value": u}
                                         for u in sorted(
-                                            df["Unidade Orçamentária"]
+                                            df_base["Unidade Orçamentária"]
                                             .dropna()
                                             .unique()
                                         )
@@ -138,7 +140,9 @@ layout = html.Div(
                                     options=[
                                         {"label": u, "value": u}
                                         for u in sorted(
-                                            df["UG EXEC"].dropna().unique()
+                                            df_base["UG EXEC"]
+                                            .dropna()
+                                            .unique()
                                         )
                                     ],
                                     value=None,
@@ -157,7 +161,7 @@ layout = html.Div(
                                     options=[
                                         {"label": int(a), "value": int(a)}
                                         for a in sorted(
-                                            df["Ano"].dropna().unique()
+                                            df_base["Ano"].dropna().unique()
                                         )
                                     ],
                                     value=ANO_PADRAO,
@@ -175,7 +179,7 @@ layout = html.Div(
                                     options=[
                                         {"label": m, "value": m}
                                         for m in sorted(
-                                            df["Mês"].dropna().unique()
+                                            df_base["Mês"].dropna().unique()
                                         )
                                     ],
                                     value=None,
@@ -206,7 +210,7 @@ layout = html.Div(
                                     options=[
                                         {"label": f, "value": f}
                                         for f in sorted(
-                                            df["FRD"].dropna().unique()
+                                            df_base["FRD"].dropna().unique()
                                         )
                                     ],
                                     value=None,
@@ -225,7 +229,9 @@ layout = html.Div(
                                     options=[
                                         {"label": g, "value": g}
                                         for g in sorted(
-                                            df["GRUPO DESP"].dropna().unique()
+                                            df_base["GRUPO DESP"]
+                                            .dropna()
+                                            .unique()
                                         )
                                     ],
                                     value=None,
@@ -244,7 +250,9 @@ layout = html.Div(
                                     options=[
                                         {"label": n, "value": n}
                                         for n in sorted(
-                                            df["NAT DESP"].dropna().unique()
+                                            df_base["NAT DESP"]
+                                            .dropna()
+                                            .unique()
                                         )
                                     ],
                                     value=None,
@@ -367,9 +375,18 @@ layout = html.Div(
     Input("filtro_fonte_ted", "value"),
     Input("filtro_grupo_ted", "value"),
     Input("filtro_nat_ted", "value"),
+    Input("interval-atualizacao", "n_intervals"),  # novo Input
 )
-def atualizar_painel(uo, ugexec, ano, mes, fonte, grupo, nat):
-    dff = df.copy()
+def atualizar_painel(uo, ugexec, ano, mes, fonte, grupo, nat, n_intervals):
+    global df_base
+
+    # Atualiza o df_base somente em um horário permitido (exemplo: 08h–20h)
+    agora = dt.datetime.now().time()
+    if dt.time(8, 0) <= agora <= dt.time(20, 0):
+        if n_intervals is not None:
+            df_base = carregar_dados()
+
+    dff = df_base.copy()
 
     if uo:
         dff = dff[dff["Unidade Orçamentária"] == uo]
@@ -595,15 +612,15 @@ def limpar_filtros(n):
 # --------------------------------------------------
 wrap_style = ParagraphStyle(
     name="wrap",
-    fontSize=7,
-    leading=8,
-    spaceAfter=2,
+    fontSize=5,
+    leading=6,
+    spaceAfter=0,
     alignment=TA_LEFT,
 )
 
 
 def wrap(text):
-    return Paragraph(str(text)[:200], wrap_style)
+    return Paragraph(str(text)[:150], wrap_style)
 
 
 @dash.callback(
@@ -620,29 +637,33 @@ def gerar_pdf(n, dados_pdf):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(letter),
-        topMargin=0.5 * inch,
-        bottomMargin=0.5 * inch,
+        topMargin=0.3 * inch,
+        bottomMargin=0.3 * inch,
+        leftMargin=0.3 * inch,
+        rightMargin=0.3 * inch,
     )
     styles = getSampleStyleSheet()
     story = []
 
+    # Título
     titulo = Paragraph(
         "Relatório de Execução do Orçamento - TED",
         ParagraphStyle(
-            "titulo", fontSize=18, alignment=TA_CENTER, textColor="#0b2b57"
+            "titulo", fontSize=14, alignment=TA_CENTER, textColor="#0b2b57"
         ),
     )
     story.append(titulo)
-    story.append(Spacer(1, 0.15 * inch))
+    story.append(Spacer(1, 0.08 * inch))
 
+    # Filtros
     f = dados_pdf["filtros"]
     story.append(
         Paragraph(
             f"UO: {f['uo'] if f['uo'] else 'Todas'} | "
-            f"UG Executora: {f['ugexec'] if f['ugexec'] else 'Todas'} | "
+            f"UG Exec: {f['ugexec'] if f['ugexec'] else 'Todas'} | "
             f"Ano: {f['ano'] if f['ano'] else 'Todos'} | "
             f"Mês: {f['mes'] if f['mes'] else 'Todos'}",
-            ParagraphStyle("filtros", fontSize=7, alignment=TA_LEFT),
+            ParagraphStyle("filtros", fontSize=6, alignment=TA_LEFT),
         )
     )
     story.append(
@@ -650,24 +671,25 @@ def gerar_pdf(n, dados_pdf):
             f"Fonte: {f['fonte'] if f['fonte'] else 'Todas'} | "
             f"Grupo: {f['grupo'] if f['grupo'] else 'Todos'} | "
             f"Natureza: {f['nat'] if f['nat'] else 'Todas'}",
-            ParagraphStyle("filtros", fontSize=7, alignment=TA_LEFT),
+            ParagraphStyle("filtros", fontSize=6, alignment=TA_LEFT),
         )
     )
-    story.append(Spacer(1, 0.15 * inch))
+    story.append(Spacer(1, 0.08 * inch))
 
+    # Cards/Totais
     def fmt(v):
         return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     tot = dados_pdf["totais"]
     cards_data = [
-        ["RP Não Processados", fmt(tot["rp"])],
+        ["RP Não Proc.", fmt(tot["rp"])],
         ["Empenhadas", fmt(tot["emp"])],
         ["Liquidadas", fmt(tot["liq"])],
-        ["Liquidadas a Pagar", fmt(tot["liq_pagar"])],
+        ["Liq. a Pagar", fmt(tot["liq_pagar"])],
         ["Pagas", fmt(tot["pagas"])],
     ]
 
-    tbl_cards = Table(cards_data, colWidths=[3.0 * inch, 3.0 * inch])
+    tbl_cards = Table(cards_data, colWidths=[1.5 * inch, 1.5 * inch])
     tbl_cards.setStyle(
         TableStyle(
             [
@@ -676,26 +698,32 @@ def gerar_pdf(n, dados_pdf):
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
                 ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#0b2b57")),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ]
         )
     )
     story.append(tbl_cards)
-    story.append(Spacer(1, 0.2 * inch))
+    story.append(Spacer(1, 0.1 * inch))
 
+    # Tabela detalhada
     table_data = [
         [
-            "Unidade<br>Orçamentária",
+            "UO",
             "Fonte<br>Recursos",
             "Grupo<br>Despesa",
             "Natureza<br>Despesa",
-            "RP Não<br>Proc.",
-            "Empenhadas",
-            "Liquidadas",
-            "Liq. a Pagar",
+            "RP N.P.",
+            "Empenha.",
+            "Liquida.",
+            "Liq. Pagar",
             "Pagas",
         ]
     ]
+
     for r in dados_pdf["tabela"]:
         table_data.append(
             [
@@ -713,39 +741,41 @@ def gerar_pdf(n, dados_pdf):
             ]
         )
 
+    # Larguras otimizadas para landscape
     col_widths = [
-        1.6 * inch,
-        1.8 * inch,
-        1.5 * inch,
-        1.8 * inch,
-        0.9 * inch,
-        0.9 * inch,
-        0.9 * inch,
-        0.9 * inch,
-        0.9 * inch,
+        1.2 * inch,  # UO
+        1.4 * inch,  # Fonte Recursos
+        1.1 * inch,  # Grupo Desp
+        1.3 * inch,  # Natureza Desp
+        0.75 * inch, # RP N.P.
+        0.75 * inch, # Empenha.
+        0.75 * inch, # Liquida.
+        0.8 * inch,  # Liq. Pagar
+        0.75 * inch, # Pagas
     ]
+
     tbl = Table(table_data, colWidths=col_widths)
     tbl.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+                ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("WORDWRAP", (0, 0), (-1, -1), True),
-                ("FONTSIZE", (0, 0), (-1, 0), 6),
-                ("FONTSIZE", (0, 1), (-1, -1), 6),
+                ("FONTSIZE", (0, 0), (-1, 0), 5),
+                ("FONTSIZE", (0, 1), (-1, -1), 5),
                 (
                     "ROWBACKGROUNDS",
                     (0, 1),
                     (-1, -1),
-                    [colors.white, colors.HexColor("#f5f5f5")],
+                    [colors.white, colors.HexColor("#f9f9f9")],
                 ),
-                ("LEFTPADDING", (0, 0), (-1, -1), 3),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 1),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
             ]
         )
     )

@@ -1,6 +1,8 @@
 # pages/dotacao.py
 
+
 # Painel: Dotação Atualizada e Destaques Recebidos
+
 
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
@@ -13,6 +15,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors  # [file:4]
+import datetime as dt
+
 
 # --------------------------------------------------
 # Registro da página no Dash Pages
@@ -24,6 +28,7 @@ dash.register_page(
     title="Dotação Atualizada e Destaques",
 )
 
+
 # --------------------------------------------------
 # 1. Dados
 # --------------------------------------------------
@@ -32,6 +37,7 @@ URL = (
     "1MkiWDH-MBnLeSUlqV91qjzCVRTlTAVh9xYooENJ151o/"
     "gviz/tq?tqx=out:csv&sheet=Dotacao%20Atualizada%20e%20Destaques%20Recebidos"
 )
+
 
 def carregar_dados():
     df = pd.read_csv(URL)
@@ -52,8 +58,11 @@ def carregar_dados():
     df["DESTAQUE RECEBIDO_VAL"] = df["DESTAQUE RECEBIDO"].apply(conv_moeda)
     return df  # [file:4]
 
-df = carregar_dados()
-ANO_PADRAO = int(sorted(df["ANO"].dropna().unique())[-1])
+
+# >>> DF base em vez de df global
+df_base = carregar_dados()
+ANO_PADRAO = int(sorted(df_base["ANO"].dropna().unique())[-1])
+
 
 # --------------------------------------------------
 # 2. Layout da página (só conteúdo principal)
@@ -80,7 +89,7 @@ layout = html.Div(
                                     options=[
                                         {"label": g, "value": g}
                                         for g in sorted(
-                                            df["GRUPO DA DESPESA"]
+                                            df_base["GRUPO DA DESPESA"]
                                             .dropna()
                                             .unique()
                                         )
@@ -105,7 +114,7 @@ layout = html.Div(
                                     options=[
                                         {"label": int(a), "value": int(a)}
                                         for a in sorted(
-                                            df["ANO"].dropna().unique()
+                                            df_base["ANO"].dropna().unique()
                                         )
                                     ],
                                     value=ANO_PADRAO,
@@ -127,7 +136,7 @@ layout = html.Div(
                                     options=[
                                         {"label": u, "value": u}
                                         for u in sorted(
-                                            df["UNIDADE ORÇAMENTÁRIA"]
+                                            df_base["UNIDADE ORÇAMENTÁRIA"]
                                             .dropna()
                                             .unique()
                                         )
@@ -152,7 +161,7 @@ layout = html.Div(
                                     options=[
                                         {"label": f, "value": f}
                                         for f in sorted(
-                                            df["Fonte Recursos Detalhada"]
+                                            df_base["Fonte Recursos Detalhada"]
                                             .dropna()
                                             .unique()
                                         )
@@ -247,6 +256,7 @@ layout = html.Div(
     ],
 )
 
+
 # --------------------------------------------------
 # 3. Callback principal
 # --------------------------------------------------
@@ -262,9 +272,18 @@ layout = html.Div(
     Input("filtro_ano_dotacao", "value"),
     Input("filtro_unidade_dotacao", "value"),
     Input("filtro_fonte_dotacao", "value"),
+    Input("interval-atualizacao", "n_intervals"),  # novo Input
 )
-def atualizar_painel(grupo, ano, unidade, fonte):
-    dff = df.copy()
+def atualizar_painel(grupo, ano, unidade, fonte, n_intervals):
+    global df_base
+
+    # Atualiza df_base somente em horário permitido (exemplo: 08h–20h)
+    agora = dt.datetime.now().time()
+    if dt.time(8, 0) <= agora <= dt.time(20, 0):
+        if n_intervals is not None:
+            df_base = carregar_dados()
+
+    dff = df_base.copy()
 
     if ano:
         dff = dff[dff["ANO"] == ano]
@@ -472,6 +491,7 @@ def atualizar_painel(grupo, ano, unidade, fonte):
         dados_pdf,
     )
 
+
 # --------------------------------------------------
 # 4. Limpar filtros
 # --------------------------------------------------
@@ -486,6 +506,7 @@ def atualizar_painel(grupo, ano, unidade, fonte):
 def limpar_filtros(n):
     return ANO_PADRAO, None, None, None
 
+
 # --------------------------------------------------
 # 5. PDF (cards + tabela)
 # --------------------------------------------------
@@ -496,8 +517,10 @@ wrap_style = ParagraphStyle(
     spaceAfter=4,
 )
 
+
 def wrap(text):
     return Paragraph(str(text), wrap_style)
+
 
 @dash.callback(
     Output("download_relatorio_dotacao", "data"),

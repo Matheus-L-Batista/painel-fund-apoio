@@ -1,5 +1,3 @@
-# pages/passagens_dcf.py
-
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
 import plotly.express as px
@@ -76,8 +74,9 @@ def carregar_dados():
     return df
 
 
-df = carregar_dados()
-ANO_PADRAO = int(sorted(df["Ano"].dropna().unique())[-1])
+# 🔧 B) DF base inicial
+df_base = carregar_dados()
+ANO_PADRAO = int(sorted(df_base["Ano"].dropna().unique())[-1])
 
 nomes_meses = [
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -121,8 +120,13 @@ layout = html.Div(
                                 dcc.Dropdown(
                                     id="filtro_ano_passagens",
                                     options=[
-                                        {"label": int(a), "value": int(a)}
-                                        for a in sorted(df["Ano"].dropna().unique())
+                                        {
+                                            "label": int(a),
+                                            "value": int(a),
+                                        }
+                                        for a in sorted(
+                                            df_base["Ano"].dropna().unique()
+                                        )
                                     ],
                                     value=ANO_PADRAO,
                                     clearable=False,
@@ -139,8 +143,13 @@ layout = html.Div(
                                 dcc.Dropdown(
                                     id="filtro_mes_passagens",
                                     options=[
-                                        {"label": m.capitalize(), "value": i}
-                                        for i, m in enumerate(nomes_meses, start=1)
+                                        {
+                                            "label": m.capitalize(),
+                                            "value": i,
+                                        }
+                                        for i, m in enumerate(
+                                            nomes_meses, start=1
+                                        )
                                     ],
                                     value=None,
                                     placeholder="Todos",
@@ -163,7 +172,11 @@ layout = html.Div(
                                     id="filtro_unidade_passagens",
                                     options=[
                                         {"label": u, "value": u}
-                                        for u in sorted(df["Unidade (Viagem)"].unique())
+                                        for u in sorted(
+                                            df_base[
+                                                "Unidade (Viagem)"
+                                            ].unique()
+                                        )
                                     ],
                                     value=None,
                                     placeholder="Todas",
@@ -231,7 +244,10 @@ layout = html.Div(
                 {"name": "Gasto com Diárias", "id": "Valor das Diárias"},
                 {"name": "Gasto com Passagem", "id": "Valor da Passagem"},
                 {"name": "Gasto com Restituição", "id": "Valor Restituição"},
-                {"name": "Gasto com Seguro Viagem", "id": "Valor Seguro Viagem"},
+                {
+                    "name": "Gasto com Seguro Viagem",
+                    "id": "Valor Seguro Viagem",
+                },
             ],
             data=[],
             style_table={
@@ -256,7 +272,10 @@ layout = html.Div(
             columns=[
                 {"name": "Unidade (Viagem)", "id": "Unidade (Viagem)"},
                 {"name": "Número da PCDP", "id": "Número da PCDP"},
-                {"name": "Data Início da Viagem", "id": "Data Início da Viagem"},
+                {
+                    "name": "Data Início da Viagem",
+                    "id": "Data Início da Viagem",
+                },
                 {
                     "name": "Custo passagens no prazo",
                     "id": "Custo com emissão de passagens dentro do prazo",
@@ -295,9 +314,14 @@ layout = html.Div(
     Input("filtro_ano_passagens", "value"),
     Input("filtro_mes_passagens", "value"),
     Input("filtro_unidade_passagens", "value"),
+    # 🔧 C) Interval como Input extra
+    Input("interval-atualizacao", "n_intervals"),
 )
-def atualizar_pagina(ano, mes, unidade):
+def atualizar_pagina(ano, mes, unidade, n_intervals):
+    # Atualiza o DF base apenas quando o intervalo dispara
+    df = carregar_dados() if n_intervals is not None else df_base
     dff = df.copy()
+
     if ano:
         dff = dff[dff["Ano"] == ano]
     if mes:
@@ -306,15 +330,24 @@ def atualizar_pagina(ano, mes, unidade):
         dff = dff[dff["Unidade (Viagem)"] == unidade]
 
     total_viagem = dff["Valor da Viagem"].sum()
-    total_prazo = dff["Custo com emissão de passagens dentro do prazo"].sum()
-    total_urgencia = dff["Custo com emissão de passagens em caráter de urgência"].sum()
+    total_prazo = dff[
+        "Custo com emissão de passagens dentro do prazo"
+    ].sum()
+    total_urgencia = dff[
+        "Custo com emissão de passagens em caráter de urgência"
+    ].sum()
     total_diarias = dff["Valor das Diárias"].sum()
     total_seguro = dff["Valor Seguro Viagem"].sum()
     total_restit = dff["Valor Restituição"].sum()
     total_passagem = dff["Valor da Passagem"].sum()
 
     def f(v):
-        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return (
+            f"R$ {v:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
 
     def card(titulo, valor):
         return html.Div(
@@ -422,9 +455,13 @@ def atualizar_pagina(ano, mes, unidade):
     Input("filtro_ano_passagens", "value"),
     Input("filtro_mes_passagens", "value"),
     Input("filtro_unidade_passagens", "value"),
+    # também atualiza com o intervalo
+    Input("interval-atualizacao", "n_intervals"),
 )
-def atualizar_detalhe(ano, mes, unidade):
+def atualizar_detalhe(ano, mes, unidade, n_intervals):
+    df = carregar_dados() if n_intervals is not None else df_base
     dff = df.copy()
+
     if ano:
         dff = dff[dff["Ano"] == ano]
     if mes:
@@ -441,15 +478,24 @@ def atualizar_detalhe(ano, mes, unidade):
             "Custo com emissão de passagens em caráter de urgência",
         ]
     ].copy()
-    dff["Data Início da Viagem"] = dff["Data Início da Viagem"].dt.strftime("%d/%m/%Y")
+    dff["Data Início da Viagem"] = dff[
+        "Data Início da Viagem"
+    ].dt.strftime("%d/%m/%Y")
 
     def f(v):
-        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return (
+            f"R$ {v:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
 
     dff["Custo com emissão de passagens dentro do prazo"] = dff[
         "Custo com emissão de passagens dentro do prazo"
     ].apply(f)
-    dff["Custo com emissão de passagens em caráter de urgência"] = dff[
+    dff[
+        "Custo com emissão de passagens em caráter de urgência"
+    ] = dff[
         "Custo com emissão de passagens em caráter de urgência"
     ].apply(f)
 
@@ -527,8 +573,11 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
     cards_vals = dados_pdf["cards"]
 
     def fmt(v):
-        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."
-
+        return (
+            f"R$ {v:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
         )
 
     cards_data = [
@@ -593,8 +642,16 @@ def gerar_pdf(n, fig_pizza, fig_barras, resumo, detalhe, dados_pdf):
                 wrap(r["Unidade (Viagem)"]),
                 wrap(r["Número da PCDP"]),
                 wrap(r["Data Início da Viagem"]),
-                wrap(r["Custo com emissão de passagens dentro do prazo"]),
-                wrap(r["Custo com emissão de passagens em caráter de urgência"]),
+                wrap(
+                    r[
+                        "Custo com emissão de passagens dentro do prazo"
+                    ]
+                ),
+                wrap(
+                    r[
+                        "Custo com emissão de passagens em caráter de urgência"
+                    ]
+                ),
             ]
         )
 

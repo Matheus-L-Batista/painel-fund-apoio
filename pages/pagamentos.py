@@ -1,5 +1,3 @@
-# pages/pagamentos.py
-
 # Painel: Pagamentos Efetivados
 
 import dash
@@ -13,7 +11,8 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
-from reportlab.lib import colors  # [file:5]
+from reportlab.lib import colors
+
 
 # --------------------------------------------------
 # Registro da página
@@ -25,11 +24,13 @@ dash.register_page(
     title="Pagamentos Efetivados",
 )
 
+
 URL = (
     "https://docs.google.com/spreadsheets/d/"
     "1KEEohPamH36URHpPjFjpVmSNOoK3429erayoPv6fcDo/"
     "gviz/tq?tqx=out:csv&sheet=Pagamentos%20Efetivados"
 )
+
 
 # ----------------------------------------
 # 2. CARGA E TRATAMENTO DOS DADOS
@@ -81,10 +82,13 @@ def carregar_dados():
 
     df["Ano"] = df["ANO"].astype(int)
     df["Mes"] = df["MÊS"].astype(str).str.upper().map(mapa_meses)
-    return df  # [file:5]
+    return df
 
-df = carregar_dados()
-ANO_PADRAO = int(sorted(df["Ano"].dropna().unique())[-1])
+
+# 🔧 B) DF base inicial
+df_base = carregar_dados()
+ANO_PADRAO = int(sorted(df_base["Ano"].dropna().unique())[-1])
+
 
 # ----------------------------------------
 # 3. LISTA DE MESES (para o dropdown)
@@ -109,7 +113,8 @@ dropdown_style = {
     "width": "100%",
     "marginBottom": "10px",
     "whiteSpace": "normal",
-}  # [file:5]
+}
+
 
 # ----------------------------------------
 # 4. LAYOUT DA PÁGINA (somente conteúdo)
@@ -136,7 +141,7 @@ layout = html.Div(
                                     options=[
                                         {"label": int(a), "value": int(a)}
                                         for a in sorted(
-                                            df["Ano"].dropna().unique()
+                                            df_base["Ano"].dropna().unique()
                                         )
                                     ],
                                     value=ANO_PADRAO,
@@ -177,7 +182,7 @@ layout = html.Div(
                                     options=[
                                         {"label": u, "value": u}
                                         for u in sorted(
-                                            df["LISTAS"].dropna().unique()
+                                            df_base["LISTAS"].dropna().unique()
                                         )
                                     ],
                                     value=None,
@@ -198,7 +203,7 @@ layout = html.Div(
                                     options=[
                                         {"label": str(u), "value": str(u)}
                                         for u in sorted(
-                                            df["FONTE"].dropna().unique()
+                                            df_base["FONTE"].dropna().unique()
                                         )
                                     ],
                                     value=None,
@@ -281,6 +286,7 @@ layout = html.Div(
     ],
 )
 
+
 # ----------------------------------------
 # 5. CALLBACK — Atualização tabela + gráficos
 # ----------------------------------------
@@ -293,8 +299,12 @@ layout = html.Div(
     Input("filtro_mes_pagamentos", "value"),
     Input("filtro_lista_pagamentos", "value"),
     Input("filtro_fonte_pagamentos", "value"),
+    # 🔧 C) Interval como Input extra
+    Input("interval-atualizacao", "n_intervals"),
 )
-def atualizar_tabela(ano, mes, lista, fonte):
+def atualizar_tabela(ano, mes, lista, fonte, n_intervals):
+    # Atualiza df apenas quando o intervalo dispara
+    df = carregar_dados() if n_intervals is not None else df_base
     dff = df.copy()
 
     if ano:
@@ -384,6 +394,7 @@ def atualizar_tabela(ano, mes, lista, fonte):
 
     return dff_display.to_dict("records"), dados_pdf, fig_lista, fig_fonte
 
+
 # ----------------------------------------
 # 6. CALLBACK — Limpar filtros
 # ----------------------------------------
@@ -399,6 +410,7 @@ def limpar(n):
     ano_padrao = ANO_PADRAO
     return ano_padrao, None, None, None
 
+
 # ----------------------------------------
 # 7. CALLBACK — Geração do PDF
 # ----------------------------------------
@@ -409,8 +421,10 @@ wrap_style = ParagraphStyle(
     spaceAfter=4,
 )
 
+
 def wrap(text):
     return Paragraph(str(text), wrap_style)
+
 
 @dash.callback(
     Output("download_relatorio_pagamentos", "data"),

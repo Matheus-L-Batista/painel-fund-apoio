@@ -1,8 +1,10 @@
 import dash
 from dash import Dash, html, dcc
 
+
 app = Dash(__name__, use_pages=True)
 server = app.server
+
 
 menu_links = [
     {"label": "Passagens DCF", "href": "/passagens-dcf"},
@@ -13,10 +15,16 @@ menu_links = [
     {"label": "Execução TED", "href": "/execucao-ted"},
 ]
 
+
 app.layout = html.Div(
     className="app-root",
     children=[
         dcc.Location(id="url"),
+        dcc.Interval(
+            id="interval-atualizacao",
+            interval=60 * 60 * 1000,  # 1 hora
+            n_intervals=0,
+        ),
         html.Div(
             className="app-container",
             children=[
@@ -56,6 +64,7 @@ app.layout = html.Div(
         ),
     ],
 )
+
 
 @app.callback(
     dash.Output("sidebar-menu", "children"),

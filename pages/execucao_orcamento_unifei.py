@@ -14,6 +14,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib import colors
+import datetime as dt
 
 
 # --------------------------------------------------
@@ -69,8 +70,9 @@ def carregar_dados():
     return df
 
 
-df = carregar_dados()
-ANO_PADRAO = int(sorted(df["Ano"].dropna().unique())[-1])
+# DF base inicial (no lugar do df global)
+df_base = carregar_dados()
+ANO_PADRAO = int(sorted(df_base["Ano"].dropna().unique())[-1])
 
 dropdown_style = {
     "color": "black",
@@ -111,7 +113,7 @@ layout = html.Div(
                                     options=[
                                         {"label": u, "value": u}
                                         for u in sorted(
-                                            df["UG Executora"]
+                                            df_base["UG Executora"]
                                             .dropna()
                                             .unique()
                                         )
@@ -132,7 +134,7 @@ layout = html.Div(
                                     options=[
                                         {"label": m, "value": m}
                                         for m in sorted(
-                                            df["Mês"].dropna().unique()
+                                            df_base["Mês"].dropna().unique()
                                         )
                                     ],
                                     value=None,
@@ -151,7 +153,7 @@ layout = html.Div(
                                     options=[
                                         {"label": int(a), "value": int(a)}
                                         for a in sorted(
-                                            df["Ano"].dropna().unique()
+                                            df_base["Ano"].dropna().unique()
                                         )
                                     ],
                                     value=ANO_PADRAO,
@@ -181,7 +183,7 @@ layout = html.Div(
                                     options=[
                                         {"label": f, "value": f}
                                         for f in sorted(
-                                            df["Fonte Recursos Detalhada"]
+                                            df_base["Fonte Recursos Detalhada"]
                                             .dropna()
                                             .unique()
                                         )
@@ -202,7 +204,9 @@ layout = html.Div(
                                     options=[
                                         {"label": g, "value": g}
                                         for g in sorted(
-                                            df["GRUPO DESP"].dropna().unique()
+                                            df_base["GRUPO DESP"]
+                                            .dropna()
+                                            .unique()
                                         )
                                     ],
                                     value=None,
@@ -221,7 +225,9 @@ layout = html.Div(
                                     options=[
                                         {"label": n, "value": n}
                                         for n in sorted(
-                                            df["NAT DESP"].dropna().unique()
+                                            df_base["NAT DESP"]
+                                            .dropna()
+                                            .unique()
                                         )
                                     ],
                                     value=None,
@@ -340,9 +346,18 @@ layout = html.Div(
     Input("filtro_fonte_unifei", "value"),
     Input("filtro_grupo_unifei", "value"),
     Input("filtro_nat_unifei", "value"),
+    Input("interval-atualizacao", "n_intervals"),  # novo Input
 )
-def atualizar_painel(ug_exec, mes, ano, fonte, grupo, nat):
-    dff = df.copy()
+def atualizar_painel(ug_exec, mes, ano, fonte, grupo, nat, n_intervals):
+    global df_base
+
+    # Atualiza o df_base somente em horário permitido (exemplo: 08h–20h)
+    agora = dt.datetime.now().time()
+    if dt.time(8, 0) <= agora <= dt.time(20, 0):
+        if n_intervals is not None:
+            df_base = carregar_dados()
+
+    dff = df_base.copy()
 
     if ug_exec:
         dff = dff[dff["UG Executora"] == ug_exec]
@@ -664,7 +679,7 @@ def gerar_pdf(n, dados_pdf):
             "Pagas",
         ]
     ]
-    
+
     for r in dados_pdf["tabela"]:
         table_data.append(
             [
@@ -692,7 +707,7 @@ def gerar_pdf(n, dados_pdf):
         0.8 * inch,  # Liq. Pagar
         0.75 * inch, # Pagas
     ]
-    
+
     tbl = Table(table_data, colWidths=col_widths)
     tbl.setStyle(
         TableStyle(
