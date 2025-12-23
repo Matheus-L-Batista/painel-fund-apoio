@@ -4,28 +4,20 @@ from dash import Dash, html, dcc
 app = Dash(
     __name__,
     use_pages=True,
-    suppress_callback_exceptions=True,  # boa prática
+    suppress_callback_exceptions=True,
     meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
 )
 server = app.server
 
-
 menu_links = [
-    {"label": "Passagens DCF", "href": "/passagens-dcf"},
-    {"label": "Pagamentos Efetivados", "href": "/pagamentos"},
-    {"label": "Dotação Atualizada", "href": "/dotacao"},
-    {"label": "Execução Orçamento UNIFEI", "href": "/execucao-orcamento-unifei"},
-    {"label": "Naturezas Despesa", "href": "/natureza-despesa-2024"},
-    {"label": "Execução TED", "href": "/execucao-ted"},
+    {"label": "Processos de Compras", "href": "/processos-de-compras"},
 ]
-
 
 app.layout = html.Div(
     className="app-root",
     children=[
         dcc.Location(id="url"),
 
-        # 🔁 Atualização automática (1x por hora)
         dcc.Interval(
             id="interval-atualizacao",
             interval=60 * 60 * 1000,
@@ -72,7 +64,6 @@ app.layout = html.Div(
     ],
 )
 
-
 @app.callback(
     dash.Output("sidebar-menu", "children"),
     dash.Input("url", "pathname"),
@@ -93,7 +84,6 @@ def atualizar_menu(pathname):
             )
         )
     return itens
-
 
 if __name__ == "__main__":
     app.run(debug=True)
