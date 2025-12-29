@@ -2,42 +2,39 @@ import dash
 from dash import html, dash_table
 import pandas as pd
 
+# Registra a página no Dash Pages
 dash.register_page(
     __name__,
     path="/consultartabelas",
     name="consultartabelas",
-    title="consultartabelas",
+    title="Consultar Tabelas",
 )
 
+# URL da planilha (aba Fiscais)
 URL_PORTARIAS = (
     "https://docs.google.com/spreadsheets/d/"
     "17nBhvSoCeK3hNgCj2S57q3pF2Uxj6iBpZDvCX481KcU/"
-    "gviz/tq?tqx=out:csv&sheet=Grupo%20da%20Cont."
-    )
+    "gviz/tq?tqx=out:csv&sheet=Fiscais"
+)
 
-#def carregar_dados_portarias():
-#    # pula a primeira linha (index 0) e usa a segunda como header
-#    df = pd.read_csv(URL_PORTARIAS, header=1)
-#    df = pd.read_csv(URL_PORTARIAS, header=1)
-#    print(df.columns.tolist())
-
-#    df.columns = [c.strip() for c in df.columns]
-#    return df
-
+# Função para carregar os dados a partir da 3ª linha
 def carregar_dados_portarias():
-    df = pd.read_csv(URL_PORTARIAS)
-    
+    # header=2 -> usa a 3ª linha como cabeçalho
+    df = pd.read_csv(URL_PORTARIAS, header=3)
     df.columns = [c.strip() for c in df.columns]
     return df
 
+# Carrega os dados
 df_portarias_base = carregar_dados_portarias()
 
+# Layout da página
 layout = html.Div(
     children=[
         html.H4("Colunas da planilha de Portarias"),
         html.Ul(
             [html.Li(col) for col in df_portarias_base.columns]
         ),
+
         html.H4("Tabela de Portarias"),
         dash_table.DataTable(
             id="tabela_portarias",

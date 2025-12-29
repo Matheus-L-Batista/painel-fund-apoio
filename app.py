@@ -14,6 +14,7 @@ menu_links = [
     {"label": "Portarias Agente de Compras/ Contratos Tipo Empenho", "href": "/portarias_agentedecompras"},
     {"label": "Portarias de Planejamento da Contratação", "href": "/portarias_planejamento"},
     {"label": "Contratos", "href": "/contratos"},
+    {"label": "Fiscais", "href": "/fiscais"}, 
     {"label": "Consultar tabela", "href": "/consultartabelas"},
 ]
 
