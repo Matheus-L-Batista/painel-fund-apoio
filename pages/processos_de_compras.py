@@ -1,8 +1,9 @@
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
+
 import pandas as pd
 from io import BytesIO
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -85,6 +86,7 @@ def carregar_dados_processos():
     df["Data finalização"] = pd.to_datetime(
         df["Data finalização"], format="%d/%m/%Y", errors="coerce"
     )
+
     meses_map = {
         1: "janeiro",
         2: "fevereiro",
@@ -99,10 +101,10 @@ def carregar_dados_processos():
         11: "novembro",
         12: "dezembro",
     }
+
     df["Mes_finalizacao"] = df["Data finalização"].dt.month.map(meses_map)
 
     return df
-
 
 df_proc_base = carregar_dados_processos()
 ANO_ATUAL = datetime.now().year
@@ -346,7 +348,6 @@ layout = html.Div(
                 ),
             ],
         ),
-
         # Conteúdo
         html.Div(
             children=[
@@ -407,6 +408,7 @@ layout = html.Div(
                         "overflowX": "auto",
                         "overflowY": "auto",
                         "maxHeight": "500px",
+                        "position": "relative",  # para sticky header
                     },
                     style_cell={
                         "textAlign": "center",
@@ -421,6 +423,9 @@ layout = html.Div(
                         "backgroundColor": "#0b2b57",
                         "color": "white",
                         "textAlign": "center",
+                        "position": "sticky",
+                        "top": 0,
+                        "zIndex": 10,
                     },
                 ),
                 dcc.Store(id="store_dados_proc"),
@@ -447,8 +452,9 @@ layout = html.Div(
     Input("filtro_status_proc", "value"),
     Input("filtro_classif_nc_proc", "value"),
 )
-def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
-                          modalidade, status, classif_nc):
+def atualizar_tabela_proc(
+    num_proc, ano, mes_finalizacao, solicitante, objeto, modalidade, status, classif_nc
+):
     dff = df_proc_base.copy()
 
     if num_proc and str(num_proc).strip():
@@ -472,9 +478,7 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
     if status:
         dff = dff[dff["Status"] == status]
     if classif_nc:
-        dff = dff[
-            dff["Classificação dos processos não concluídos"] == classif_nc
-        ]
+        dff = dff[dff["Classificação dos processos não concluídos"] == classif_nc]
 
     dff_display = dff.copy()
     dff_display["PREÇO ESTIMADO_FMT"] = dff_display["PREÇO ESTIMADO"].apply(
@@ -574,6 +578,7 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
             .count()
             .rename(columns={"Numero do Processo": "Qtd"})
         )
+
         fig_status = px.pie(
             grp_status,
             names="Status",
@@ -581,14 +586,16 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
             hole=0.6,
             title="Porcentagem de Status",
         )
+
         fig_status.update_traces(
             marker=dict(
                 colors=["#003A70", "#DA291C", "#A2AAAD"],
                 line=dict(color="#ECEDEF", width=2),
             ),
             textposition="outside",
-            texttemplate="%{label}<br>%{value} (%{percent:.2%})",
+            texttemplate="%{label}%{value} (%{percent:.2%})",
         )
+
         fig_status.update_layout(
             title_x=0.5,
             plot_bgcolor="#FFFFFF",
@@ -597,6 +604,7 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
         )
 
         dff_conc = dff[dff["Status"] == "Concluído"].copy()
+
         if dff_conc.empty:
             fig_valor_mes = px.bar(title="Valor dos Processos Concluídos por Mês")
         else:
@@ -604,6 +612,7 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
                 dff_conc.groupby("Mes_finalizacao", as_index=False)["Valor Contratado"]
                 .sum()
             )
+
             meses_ordem = [
                 "janeiro",
                 "fevereiro",
@@ -618,11 +627,13 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
                 "novembro",
                 "dezembro",
             ]
+
             grp_mes["Mes_finalizacao"] = pd.Categorical(
                 grp_mes["Mes_finalizacao"],
                 categories=meses_ordem,
                 ordered=True,
             )
+
             grp_mes = grp_mes.sort_values("Mes_finalizacao")
             grp_mes["Valor_fmt"] = grp_mes["Valor Contratado"].apply(formatar_moeda)
 
@@ -634,10 +645,12 @@ def atualizar_tabela_proc(num_proc, ano, mes_finalizacao, solicitante, objeto,
                 text="Valor_fmt",
                 title="Valor dos Processos Concluídos por Mês",
             )
+
             fig_valor_mes.update_traces(
                 marker_color="#003A70",
                 textposition="outside",
             )
+
             fig_valor_mes.update_layout(
                 title_x=0.5,
                 xaxis_title="Valor Contratado (R$)",
@@ -687,7 +700,7 @@ def limpar_filtros_proc(n):
     return None, ANO_ATUAL, None, None, None, None, None, None
 
 # ----------------------------------------
-# Callback: gerar PDF
+# Callback: gerar PDF (paisagem, header repetido)
 # ----------------------------------------
 wrap_style = ParagraphStyle(
     name="wrap",
@@ -708,22 +721,32 @@ def wrap(text):
 def gerar_pdf_proc(n, dados_proc):
     if not n or not dados_proc:
         return None
-
     df = pd.DataFrame(dados_proc)
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
+
+    pagesize = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=pagesize,
+        rightMargin=0.3 * inch,
+        leftMargin=0.3 * inch,
+        topMargin=0.4 * inch,
+        bottomMargin=0.4 * inch,
+    )
+
     styles = getSampleStyleSheet()
     story = []
 
     titulo = Paragraph(
         "Relatório de Processos de Compras",
         ParagraphStyle(
-            "titulo", fontSize=22, alignment=TA_CENTER, textColor="#0b2b57"
+            "titulo", fontSize=16, alignment=TA_CENTER, textColor="#0b2b57"
         ),
     )
+
     story.append(titulo)
-    story.append(Spacer(1, 0.3 * inch))
+    story.append(Spacer(1, 0.2 * inch))
 
     story.append(
         Paragraph(
@@ -731,7 +754,8 @@ def gerar_pdf_proc(n, dados_proc):
             styles["Normal"],
         )
     )
-    story.append(Spacer(1, 0.2 * inch))
+
+    story.append(Spacer(1, 0.15 * inch))
 
     cols = [
         "Solicitante",
@@ -759,30 +783,38 @@ def gerar_pdf_proc(n, dados_proc):
 
     header = cols
     table_data = [header]
+
     for _, row in df_pdf[cols].iterrows():
         table_data.append([wrap(row[c]) for c in cols])
 
-    col_width = max(1.0, 7.5 / max(1, len(header))) * inch
+    page_width = pagesize[0] - 0.6 * inch
+    col_width = page_width / max(1, len(header))
     col_widths = [col_width] * len(header)
 
-    tbl = Table(table_data, colWidths=col_widths)
+    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+
     tbl.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("WORDWRAP", (0, 0), (-1, -1), True),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
             ]
         )
     )
 
     story.append(tbl)
-    doc.build(story)
-    buffer.seek(0)
 
+    doc.build(story)
+
+    buffer.seek(0)
     from dash import dcc
-    return dcc.send_bytes(buffer.getvalue(), "processos_de_compras.pdf")
+    return dcc.send_bytes(buffer.getvalue(), "processos_de_compras_paisagem.pdf")

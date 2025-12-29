@@ -20,7 +20,7 @@ html, body {
 /* ========================= */
 
 :root {
-    --sidebar-width: 320px;
+    --sidebar-width: 280px;   /* largura da barra azul */
 }
 
 /* ========================= */
@@ -120,7 +120,7 @@ html, body {
 .main-content {
     flex: 1;
     height: 100%;
-    padding: 0 0 15px 0;   /* sem espaço no topo/laterais -> filtros ocupam tudo */
+    padding: 0 0 15px 8px;   /* 8px de distância da barra azul */
     background-color: #ffffff;
     overflow-y: auto;
     overflow-x: hidden;
@@ -141,7 +141,7 @@ html, body {
     top: 0;
     z-index: 10;
     background-color: #ffffff;
-    padding: 4px 0 8px 0;  /* sem padding lateral, ocupa toda largura */
+    padding: 4px 0 8px 0;  /* sem padding lateral, ocupa toda largura da main-content */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
