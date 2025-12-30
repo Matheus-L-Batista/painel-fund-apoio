@@ -1,6 +1,14 @@
 import dash
-from dash import html, dcc, dash_table, Input, Output
+from dash import html, dcc, dash_table, Input, Output, State
 import pandas as pd
+
+from io import BytesIO
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib import colors
 
 
 # --------------------------------------------------
@@ -42,7 +50,6 @@ def carregar_dados_status():
         "Modalidade",
         "Número",
         "Valor inicial",
-        # "Valor Final",  # se existir no CSV, pode habilitar
         "Não concluído",
         "Entrada na DCC",
     ]
@@ -100,6 +107,13 @@ def carregar_dados_status():
     # empilha tudo (equivalente ao Table.Combine da TabelaUnida)
     tabela_unida = pd.concat(grupos, ignore_index=True)
 
+    # remove linhas totalmente vazias (NaN ou string vazia em todas as colunas)
+    t_aux = tabela_unida.replace({None: pd.NA}).fillna("")
+    mask_nao_vazia = t_aux.apply(
+        lambda row: any(v not in ("", None) for v in row.values), axis=1
+    )
+    tabela_unida = tabela_unida[mask_nao_vazia].copy()
+
     # tipagem básica
     tabela_unida["Linha"] = tabela_unida["Linha"].astype(str)
 
@@ -130,13 +144,6 @@ def carregar_dados_status():
                 tabela_unida[col], errors="coerce", dayfirst=True
             )
 
-    # remove linhas totalmente vazias
-    t_aux = tabela_unida.fillna("")
-    mask_nao_vazia = t_aux.apply(
-        lambda row: any(v not in ("", None) for v in row.values), axis=1
-    )
-    tabela_unida = tabela_unida[mask_nao_vazia].copy()
-
     tabela_unida["Finalizado"] = tabela_unida["Finalizado"].fillna("")
 
     return tabela_unida
@@ -150,6 +157,18 @@ dropdown_style = {
     "marginBottom": "6px",
     "whiteSpace": "normal",
 }
+
+# monta opções de Processo na ordem da coluna Linha (descendente)
+df_proc_opts = df_status[["Processo", "Linha"]].copy()
+df_proc_opts = df_proc_opts.dropna(subset=["Processo"])
+df_proc_opts["Linha_num"] = pd.to_numeric(df_proc_opts["Linha"], errors="coerce")
+df_proc_opts = df_proc_opts.sort_values("Linha_num", ascending=False)
+df_proc_opts = df_proc_opts.drop_duplicates(subset=["Processo"], keep="first")
+
+processo_options = [
+    {"label": row["Processo"], "value": row["Processo"]}
+    for _, row in df_proc_opts.iterrows()
+]
 
 
 # --------------------------------------------------
@@ -190,15 +209,7 @@ layout = html.Div(
                                 html.Label("Processo (seleção)"),
                                 dcc.Dropdown(
                                     id="filtro_processo",
-                                    options=[
-                                        {"label": p, "value": p}
-                                        for p in sorted(
-                                            df_status["Processo"]
-                                            .dropna()
-                                            .unique()
-                                        )
-                                        if str(p) != ""
-                                    ],
+                                    options=processo_options,
                                     value=None,
                                     placeholder="Todos",
                                     clearable=True,
@@ -272,6 +283,25 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                    ],
+                ),
+                html.Div(
+                    style={"marginTop": "4px"},
+                    children=[
+                        html.Button(
+                            "Limpar filtros",
+                            id="btn_limpar_filtros_status",
+                            n_clicks=0,
+                            className="filtros-button",
+                        ),
+                        html.Button(
+                            "Baixar Relatório PDF",
+                            id="btn_download_relatorio_status",
+                            n_clicks=0,
+                            className="filtros-button",
+                            style={"marginLeft": "10px"},
+                        ),
+                        dcc.Download(id="download_relatorio_status"),
                     ],
                 ),
             ],
@@ -349,16 +379,18 @@ layout = html.Div(
                 ),
             ],
         ),
+        dcc.Store(id="store_dados_status"),
     ]
 )
 
 
 # --------------------------------------------------
-# Callback
+# Callbacks principais
 # --------------------------------------------------
 @dash.callback(
     Output("tabela_status_esquerda", "data"),
     Output("tabela_status_direita", "data"),
+    Output("store_dados_status", "data"),
     Input("filtro_processo_texto", "value"),
     Input("filtro_processo", "value"),
     Input("filtro_requisitante", "value"),
@@ -394,14 +426,14 @@ def atualizar_tabelas(
     if modalidade:
         dff = dff[dff["Modalidade"] == modalidade]
 
-    # ordena por Linha (opcional)
+    # ordena por Linha
     try:
         dff["Linha_ordenacao"] = pd.to_numeric(dff["Linha"], errors="coerce")
     except Exception:
         dff["Linha_ordenacao"] = dff["Linha"]
     dff = dff.sort_values("Linha_ordenacao", ascending=False)
 
-    # esquerda: 1 linha por processo
+    # tabela esquerda: 1 linha por processo
     mask_proc_valido = dff["Processo"].astype(str).str.strip().ne("")
     dff_esq = dff[mask_proc_valido].copy()
     dff_esq = dff_esq.drop_duplicates(subset=["Processo"], keep="first")
@@ -410,10 +442,8 @@ def atualizar_tabelas(
         ["Processo", "Requisitante", "Objeto", "Modalidade", "Linha"]
     ].to_dict("records")
 
-    # direita: todas as movimentações daquele filtro
+    # tabela direita: todas as movimentações do filtro
     dff_dir = dff.copy()
-
-    # mantém apenas linhas com Ação preenchida
     mask_acao_valida = dff_dir["Ação"].astype(str).str.strip().ne("")
     dff_dir = dff_dir[mask_acao_valida].copy()
 
@@ -426,4 +456,132 @@ def atualizar_tabelas(
         ["Data Mov", "E/S", "Ação", "Deptº"]
     ].to_dict("records")
 
-    return dados_esquerda, dados_direita
+    # para o PDF, pode-se optar por dff_dir (só movimentações) ou dff completo
+    return dados_esquerda, dados_direita, dff_dir.to_dict("records")
+
+
+# --------------------------------------------------
+# Callback: limpar filtros
+# --------------------------------------------------
+@dash.callback(
+    Output("filtro_processo_texto", "value"),
+    Output("filtro_processo", "value"),
+    Output("filtro_requisitante", "value"),
+    Output("filtro_objeto", "value"),
+    Output("filtro_modalidade", "value"),
+    Input("btn_limpar_filtros_status", "n_clicks"),
+    prevent_initial_call=True,
+)
+def limpar_filtros_status(n):
+    return None, None, None, None, None
+
+
+# --------------------------------------------------
+# Callback: gerar relatório PDF
+# --------------------------------------------------
+wrap_style_status = ParagraphStyle(
+    name="wrap_status",
+    fontSize=8,
+    leading=10,
+    spaceAfter=4,
+)
+
+
+def wrap_text_status(text):
+    return Paragraph(str(text), wrap_style_status)
+
+
+@dash.callback(
+    Output("download_relatorio_status", "data"),
+    Input("btn_download_relatorio_status", "n_clicks"),
+    State("store_dados_status", "data"),
+    prevent_initial_call=True,
+)
+def gerar_pdf_status(n, dados_status):
+    if not n or not dados_status:
+        return None
+
+    df = pd.DataFrame(dados_status)
+
+    buffer = BytesIO()
+    pagesize = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=pagesize,
+        rightMargin=0.3 * inch,
+        leftMargin=0.3 * inch,
+        topMargin=0.4 * inch,
+        bottomMargin=0.4 * inch,
+    )
+
+    styles = getSampleStyleSheet()
+    story = []
+
+    titulo = Paragraph(
+        "Relatório de Status do Processo",
+        ParagraphStyle(
+            "titulo_status",
+            fontSize=16,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor("#0b2b57"),
+        ),
+    )
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
+
+    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
+    story.append(Spacer(1, 0.15 * inch))
+
+    cols = [
+        "Processo",
+        "Requisitante",
+        "Objeto",
+        "Modalidade",
+        "Linha",
+        "Data Mov",
+        "E/S",
+        "Deptº",
+        "Ação",
+    ]
+    cols = [c for c in cols if c in df.columns]
+
+    df_pdf = df.copy()
+    if "Data Mov" in df_pdf.columns:
+        df_pdf["Data Mov"] = pd.to_datetime(
+            df_pdf["Data Mov"], errors="coerce"
+        ).dt.strftime("%d/%m/%Y")
+
+    header = cols
+    table_data = [header]
+    for _, row in df_pdf[cols].iterrows():
+        table_data.append([wrap_text_status(row[c]) for c in cols])
+
+    page_width = pagesize[0] - 0.6 * inch
+    col_width = page_width / max(1, len(header))
+    col_widths = [col_width] * len(header)
+
+    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+    tbl.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("WORDWRAP", (0, 0), (-1, -1), True),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+
+    story.append(tbl)
+    doc.build(story)
+    buffer.seek(0)
+
+    from dash import dcc
+    return dcc.send_bytes(buffer.getvalue(), "status_processos_paisagem.pdf")

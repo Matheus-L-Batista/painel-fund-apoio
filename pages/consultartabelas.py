@@ -14,7 +14,7 @@ dash.register_page(
 URL_PORTARIAS = (
     "https://docs.google.com/spreadsheets/d/"
     "1YNg6WRww19Gf79ISjQtb8tkzjX2lscHirnR_F3wGjog/"
-    "gviz/tq?tqx=out:csv&sheet=Consulta%20BI"
+    "gviz/tq?tqx=out:csv&sheet=PCA%20-%20BI"
 )
 
 # Função para carregar os dados a partir da 3ª linha

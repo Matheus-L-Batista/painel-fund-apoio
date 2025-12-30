@@ -16,6 +16,7 @@ menu_links = [
     {"label": "Contratos", "href": "/contratos"},
     {"label": "Fiscais", "href": "/fiscais"}, 
     {"label": "Status do Processo", "href": "/statusdoprocesso"}, 
+    {"label": "Plano de Contratação Anual", "href": "/pca"}, 
     {"label": "Consultar tabela", "href": "/consultartabelas"},
 ]
 
