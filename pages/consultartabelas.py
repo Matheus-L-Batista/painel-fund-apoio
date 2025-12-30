@@ -2,7 +2,9 @@ import dash
 from dash import html, dash_table
 import pandas as pd
 
-# Registra a página no Dash Pages
+# --------------------------------------------------
+# Registro da página
+# --------------------------------------------------
 dash.register_page(
     __name__,
     path="/consultartabelas",
@@ -10,24 +12,31 @@ dash.register_page(
     title="Consultar Tabelas",
 )
 
-# URL da planilha (aba Fiscais)
+# --------------------------------------------------
+# URL da planilha (ABA SEM ACENTO NA URL)
+# --------------------------------------------------
 URL_PORTARIAS = (
     "https://docs.google.com/spreadsheets/d/"
     "1YNg6WRww19Gf79ISjQtb8tkzjX2lscHirnR_F3wGjog/"
-    "gviz/tq?tqx=out:csv&sheet=PCA%20-%20BI"
+    "gviz/tq?tqx=out:csv&sheet=Limite%20de%20Gasto%20-%20Itajub%C3%A1"
 )
 
-# Função para carregar os dados a partir da 3ª linha
+# --------------------------------------------------
+# Função de carga dos dados
+# --------------------------------------------------
 def carregar_dados_portarias():
-    # header=2 -> usa a 3ª linha como cabeçalho
-    df = pd.read_csv(URL_PORTARIAS, header=0)
+    df = pd.read_csv(URL_PORTARIAS)
     df.columns = [c.strip() for c in df.columns]
     return df
 
+# --------------------------------------------------
 # Carrega os dados
+# --------------------------------------------------
 df_portarias_base = carregar_dados_portarias()
 
-# Layout da página
+# --------------------------------------------------
+# Layout
+# --------------------------------------------------
 layout = html.Div(
     children=[
         html.H4("Colunas da planilha de Portarias"),
@@ -46,21 +55,17 @@ layout = html.Div(
                 "overflowX": "auto",
                 "overflowY": "auto",
                 "maxHeight": "500px",
-                "position": "relative",
             },
             style_cell={
                 "textAlign": "center",
                 "padding": "6px",
                 "fontSize": "12px",
-                "minWidth": "80px",
-                "maxWidth": "220px",
                 "whiteSpace": "normal",
             },
             style_header={
                 "fontWeight": "bold",
                 "backgroundColor": "#0b2b57",
                 "color": "white",
-                "textAlign": "center",
                 "position": "sticky",
                 "top": 0,
                 "zIndex": 10,
