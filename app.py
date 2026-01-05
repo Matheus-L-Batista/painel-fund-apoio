@@ -18,7 +18,7 @@ menu_links = [
     {"label": "Status do Processo", "href": "/statusdoprocesso"}, 
     {"label": "Plano de Contratação Anual", "href": "/pca"},
     {"label": "Controle de Atas", "href": "/atas"}, 
-    {"label": "Consultar tabela", "href": "/consultartabelas"},
+    #{"label": "Consultar tabela", "href": "/consultartabelas"},
 ]
 
 app.layout = html.Div(
