@@ -12,6 +12,7 @@ from reportlab.lib import colors
 import plotly.express as px
 from datetime import datetime
 
+
 # --------------------------------------------------
 # Registro da página
 # --------------------------------------------------
@@ -22,11 +23,13 @@ dash.register_page(
     title="Processos de Compras",
 )
 
+
 URL_PROCESSOS = (
     "https://docs.google.com/spreadsheets/d/"
     "1YNg6WRww19Gf79ISjQtb8tkzjX2lscHirnR_F3wGjog/"
     "gviz/tq?tqx=out:csv&sheet=BI%20-%20Itajub%C3%A1"
 )
+
 
 # ----------------------------------------
 # Carga e tratamento dos dados
@@ -106,6 +109,7 @@ def carregar_dados_processos():
 
     return df
 
+
 df_proc_base = carregar_dados_processos()
 ANO_ATUAL = datetime.now().year
 
@@ -116,6 +120,7 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
+
 def formatar_moeda(v):
     return (
         f"R$ {v:,.2f}"
@@ -123,6 +128,7 @@ def formatar_moeda(v):
         .replace(".", ",")
         .replace("X", ".")
     )
+
 
 # ----------------------------------------
 # Layout
@@ -303,7 +309,7 @@ layout = html.Div(
                         html.Div(
                             style={"minWidth": "260px", "flex": "2 1 320px"},
                             children=[
-                                html.Label("Classificação (não concluídos)"),
+                                html.Label("Classificação (Não Concluídos)"),
                                 dcc.Dropdown(
                                     id="filtro_classif_nc_proc",
                                     options=[
@@ -331,7 +337,7 @@ layout = html.Div(
                     style={"marginTop": "4px"},
                     children=[
                         html.Button(
-                            "Limpar filtros",
+                            "Limpar Filtros",
                             id="btn_limpar_filtros_proc",
                             n_clicks=0,
                             className="filtros-button",
@@ -384,20 +390,20 @@ layout = html.Div(
                     id="tabela_proc",
                     columns=[
                         {"name": "Solicitante", "id": "Solicitante"},
-                        {"name": "Numero do Processo", "id": "Numero do Processo"},
+                        {"name": "Número Do Processo", "id": "Numero do Processo"},
                         {"name": "Objeto", "id": "Objeto"},
                         {"name": "Modalidade", "id": "Modalidade"},
-                        {"name": "PREÇO ESTIMADO", "id": "PREÇO ESTIMADO_FMT"},
+                        {"name": "Preço Estimado", "id": "PREÇO ESTIMADO_FMT"},
                         {"name": "Valor Contratado", "id": "Valor Contratado_FMT"},
                         {"name": "Status", "id": "Status"},
-                        {"name": "Data de Entrada", "id": "Data de Entrada"},
-                        {"name": "Data finalização", "id": "Data finalização_FMT"},
+                        {"name": "Data De Entrada", "id": "Data de Entrada"},
+                        {"name": "Data Finalização", "id": "Data finalização_FMT"},
                         {
-                            "name": "Classificação (não concluídos)",
+                            "name": "Classificação (Não Concluídos)",
                             "id": "Classificação dos processos não concluídos",
                         },
                         {
-                            "name": "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº",
+                            "name": "Contratação Reinstruída Pelo Processo Nº",
                             "id": "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº (com pontos e traços)",
                         },
                     ],
@@ -433,6 +439,7 @@ layout = html.Div(
         ),
     ],
 )
+
 
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
@@ -493,6 +500,14 @@ def atualizar_tabela_proc(
     dff_display["Data finalização_FMT"] = dff_display["Data finalização"].dt.strftime(
         "%d/%m/%Y"
     )
+
+    # Ordenar pela Data de Entrada (mais recente para mais antiga)
+    dff_display["Data_Entrada_dt"] = pd.to_datetime(
+        dff_display["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
+    )
+    dff_display = dff_display.sort_values(
+        "Data_Entrada_dt", ascending=False
+    ).reset_index(drop=True)
 
     total_valor_contratado = dff["Valor Contratado"].sum()
     qtd_processos = len(dff)
@@ -593,7 +608,7 @@ def atualizar_tabela_proc(
                 line=dict(color="#ECEDEF", width=2),
             ),
             textposition="outside",
-            texttemplate="%{label}%{value} (%{percent:.2%})",
+            texttemplate="%{label} %{value} (%{percent:.2%})",
         )
 
         fig_status.update_layout(
@@ -681,6 +696,7 @@ def atualizar_tabela_proc(
         fig_valor_mes,
     )
 
+
 # ----------------------------------------
 # Callback: limpar filtros
 # ----------------------------------------
@@ -699,6 +715,7 @@ def atualizar_tabela_proc(
 def limpar_filtros_proc(n):
     return None, ANO_ATUAL, None, None, None, None, None, None
 
+
 # ----------------------------------------
 # Callback: gerar PDF (paisagem, header repetido)
 # ----------------------------------------
@@ -709,8 +726,10 @@ wrap_style = ParagraphStyle(
     spaceAfter=4,
 )
 
+
 def wrap(text):
     return Paragraph(str(text), wrap_style)
+
 
 @dash.callback(
     Output("download_relatorio_proc", "data"),
