@@ -12,7 +12,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 
-
 # --------------------------------------------------
 # Registro da página
 # --------------------------------------------------
@@ -23,7 +22,6 @@ dash.register_page(
     name="Fracionamento de Despesas CATSER",
     title="Fracionamento de Despesas CATSER",
 )
-
 
 # --------------------------------------------------
 # URL da planilha
@@ -36,12 +34,10 @@ URL_LIMITE_GASTO_ITA = (
 )
 
 COL_CATSER = "CATSER"
-COL_DESC_ORIG = "Descrição"      # na planilha já vem como "Descrição"
+COL_DESC_ORIG = "Descrição"
 COL_VALOR_EMPENHADO_ORIG = "Unnamed: 3"
 
-# Data para exibição
 DATA_HOJE = date.today().strftime("%d/%m/%Y")
-
 
 # --------------------------------------------------
 # Carga e tratamento dos dados
@@ -51,13 +47,11 @@ def carregar_dados_limite():
     df = pd.read_csv(URL_LIMITE_GASTO_ITA)
     df.columns = [c.strip() for c in df.columns]
 
-    # Garante colunas básicas
     if COL_CATSER not in df.columns:
         df[COL_CATSER] = ""
     if COL_DESC_ORIG not in df.columns:
         df[COL_DESC_ORIG] = ""
 
-    # Normaliza CATSER para string com 5 dígitos
     df[COL_CATSER] = (
         df[COL_CATSER]
         .astype(str)
@@ -66,7 +60,6 @@ def carregar_dados_limite():
         .str.zfill(5)
     )
 
-    # Trata Valor Empenhado
     if COL_VALOR_EMPENHADO_ORIG in df.columns:
         df["Valor Empenhado"] = (
             df[COL_VALOR_EMPENHADO_ORIG]
@@ -78,22 +71,16 @@ def carregar_dados_limite():
     else:
         df["Valor Empenhado"] = 0.0
 
-    # Limite fixo de dispensa
     valor_limite = 65492.11
     df["Limite da Dispensa"] = valor_limite
-
-    # Saldo
     df["Saldo para contratação"] = df["Limite da Dispensa"] - df["Valor Empenhado"]
 
-    # Renomeia descrição para nome único
     df = df.rename(columns={COL_DESC_ORIG: "Descrição"})
 
     return df
 
-
 df_limite_base = carregar_dados_limite()
 
-# Lista global de CATSER para os filtros
 CATSERS_UNICOS = sorted(
     [
         c
@@ -109,9 +96,8 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
-
 # --------------------------------------------------
-# Layout em duas colunas (1/3 texto, 2/3 tabela)
+# Layout
 # --------------------------------------------------
 
 layout = html.Div(
@@ -122,7 +108,7 @@ layout = html.Div(
         "gap": "10px",
     },
     children=[
-        # Coluna esquerda (1/3) – texto explicativo
+        # Coluna esquerda
         html.Div(
             id="coluna_esquerda_catser",
             style={
@@ -205,7 +191,7 @@ layout = html.Div(
             ],
         ),
 
-        # Coluna direita (2/3) – filtros, data, tabela e store
+        # Coluna direita
         html.Div(
             id="coluna_direita_catser",
             style={
@@ -219,7 +205,7 @@ layout = html.Div(
                     id="barra_filtros_limite_itajuba",
                     className="filtros-sticky",
                     children=[
-                        # Primeira linha: filtros CATSER
+                        # Primeira linha: filtros
                         html.Div(
                             style={
                                 "display": "flex",
@@ -228,9 +214,13 @@ layout = html.Div(
                                 "alignItems": "flex-start",
                             },
                             children=[
-                                # Filtro CATSER (texto)
+                                # CATSER texto
                                 html.Div(
-                                    style={"minWidth": "220px", "flex": "1 1 260px"},
+                                    style={
+                                        "minWidth": "220px",
+                                        "flex": "1 1 260px",
+                                        "maxHeight": "60px",
+                                    },
                                     children=[
                                         html.Label("CATSER (digitação)"),
                                         dcc.Input(
@@ -244,22 +234,39 @@ layout = html.Div(
                                         ),
                                     ],
                                 ),
-                                # Filtro CATSER (dropdown)
+                                # CATSER checklist em 5 colunas, altura reduzida
                                 html.Div(
-                                    style={"minWidth": "220px", "flex": "1 1 260px"},
+                                    style={
+                                        "minWidth": "220px",
+                                        "flex": "1 1 260px",
+                                        "maxHeight": "130px",  # metade aprox.
+                                        "overflowY": "auto",
+                                        "border": "1px solid #d1d5db",
+                                        "borderRadius": "4px",
+                                        "padding": "4px",
+                                        "fontSize": "11px",
+                                    },
                                     children=[
-                                        html.Label("CATSER"),
-                                        dcc.Dropdown(
+                                        html.Label("CATSER (lista)"),
+                                        dcc.Checklist(
                                             id="filtro_catser_dropdown_itajuba",
                                             options=[
                                                 {"label": c, "value": c}
                                                 for c in CATSERS_UNICOS
                                             ],
                                             value=[],
-                                            placeholder="Todos",
-                                            clearable=True,
-                                            multi=True,
-                                            style=dropdown_style,
+                                            style={
+                                                "display": "flex",
+                                                "flexWrap": "wrap",
+                                                "columnGap": "8px",
+                                                "rowGap": "2px",
+                                            },
+                                            inputStyle={"marginRight": "4px"},
+                                            labelStyle={
+                                                "display": "inline-block",
+                                                "width": "18%",
+                                                "fontSize": "11px",
+                                            },
                                         ),
                                     ],
                                 ),
@@ -368,9 +375,8 @@ layout = html.Div(
     ],
 )
 
-
 # --------------------------------------------------
-# Callback: atualizar opções do dropdown com base no texto
+# Callbacks
 # --------------------------------------------------
 
 @dash.callback(
@@ -394,11 +400,6 @@ def atualizar_opcoes_catser(catser_texto, valores_selecionados):
 
     return opcoes
 
-
-# --------------------------------------------------
-# Callback: aplicar filtros na tabela
-# --------------------------------------------------
-
 @dash.callback(
     Output("tabela_limite_itajuba", "data"),
     Output("store_dados_limite_itajuba", "data"),
@@ -408,7 +409,6 @@ def atualizar_opcoes_catser(catser_texto, valores_selecionados):
 def atualizar_tabela_limite_itajuba(catser_texto, catser_lista):
     dff = df_limite_base.copy()
 
-    # Filtro por CATSER (texto)
     if catser_texto and str(catser_texto).strip():
         termo = str(catser_texto).strip().lower()
         dff = dff[
@@ -418,7 +418,6 @@ def atualizar_tabela_limite_itajuba(catser_texto, catser_lista):
             .str.contains(termo, na=False)
         ]
 
-    # Filtro por CATSER (dropdown)
     if catser_lista:
         dff = dff[dff[COL_CATSER].isin(catser_lista)]
 
@@ -461,11 +460,6 @@ def atualizar_tabela_limite_itajuba(catser_texto, catser_lista):
 
     return dff_display[cols_tabela_display].to_dict("records"), dff.to_dict("records")
 
-
-# --------------------------------------------------
-# Callback: limpar filtros
-# --------------------------------------------------
-
 @dash.callback(
     Output("filtro_catser_texto_itajuba", "value"),
     Output("filtro_catser_dropdown_itajuba", "value"),
@@ -474,11 +468,6 @@ def atualizar_tabela_limite_itajuba(catser_texto, catser_lista):
 )
 def limpar_filtros_limite_itajuba(n):
     return None, []
-
-
-# --------------------------------------------------
-# Callback: gerar PDF
-# --------------------------------------------------
 
 wrap_style = ParagraphStyle(
     name="wrap_limite_itajuba",
@@ -489,7 +478,6 @@ wrap_style = ParagraphStyle(
 
 def wrap(text):
     return Paragraph(str(text), wrap_style)
-
 
 @dash.callback(
     Output("download_relatorio_limite_itajuba", "data"),
