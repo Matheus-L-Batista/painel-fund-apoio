@@ -12,6 +12,8 @@ server = app.server
 menu_links = [
     {"label": "Processos de Compras", "href": "/processos-de-compras"},
     {"label": "Status do Processo", "href": "/statusdoprocesso"}, 
+    {"label": "Fracionamento de Despesas CATSER", "href": "/fracionamento_catser"},
+    {"label": "Fracionamento de Despesas PDM", "href": "/fracionamento_pdm"},
     {"label": "Portarias Agente de Compras/ Contratos Tipo Empenho", "href": "/portarias_agentedecompras"},
     {"label": "Portarias de Planejamento da Contratação", "href": "/portarias_planejamento"},
     {"label": "Contratos", "href": "/contratos"},
