@@ -24,6 +24,7 @@ from reportlab.lib import colors
 
 import os
 
+
 # --------------------------------------------------
 # Registro da página
 # --------------------------------------------------
@@ -34,6 +35,7 @@ dash.register_page(
     name="Fracionamento de Despesas CATSER",
     title="Fracionamento de Despesas CATSER",
 )
+
 
 # --------------------------------------------------
 # URL da planilha
@@ -51,10 +53,10 @@ COL_VALOR_EMPENHADO_ORIG = "Unnamed: 3"
 
 DATA_HOJE = date.today().strftime("%d/%m/%Y")
 
+
 # --------------------------------------------------
 # Carga e tratamento dos dados
 # --------------------------------------------------
-
 
 def carregar_dados_limite():
     df = pd.read_csv(URL_LIMITE_GASTO_ITA)
@@ -111,6 +113,7 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
+
 # --------------------------------------------------
 # Layout
 # --------------------------------------------------
@@ -121,6 +124,7 @@ layout = html.Div(
         "flexDirection": "row",
         "width": "100%",
         "gap": "10px",
+        "background": "linear-gradient(to bottom, #f5f5f5 0, #f5f5f5 33%, white 33%, white 100%)",
     },
     children=[
         # Coluna esquerda
@@ -214,12 +218,11 @@ layout = html.Div(
                 "minWidth": "400px",
             },
             children=[
-                # Barra de filtros
                 html.Div(
                     id="barra_filtros_limite_itajuba",
                     className="filtros-sticky",
                     children=[
-                        # Primeira linha: filtros
+                        # Primeira linha: CATSER (digitação)
                         html.Div(
                             style={
                                 "display": "flex",
@@ -228,7 +231,6 @@ layout = html.Div(
                                 "alignItems": "flex-start",
                             },
                             children=[
-                                # CATSER texto
                                 html.Div(
                                     style={
                                         "minWidth": "220px",
@@ -248,11 +250,22 @@ layout = html.Div(
                                         ),
                                     ],
                                 ),
-                                # CATSER checklist
+                            ],
+                        ),
+                        # Segunda linha: checklist CATSER
+                        html.Div(
+                            style={
+                                "marginTop": "4px",
+                                "display": "flex",
+                                "flexWrap": "wrap",
+                                "gap": "10px",
+                                "alignItems": "flex-start",
+                            },
+                            children=[
                                 html.Div(
                                     style={
                                         "minWidth": "220px",
-                                        "flex": "1 1 260px",
+                                        "flex": "1 1 100%",
                                         "maxHeight": "130px",
                                         "overflowY": "auto",
                                         "border": "1px solid #d1d5db",
@@ -286,51 +299,90 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                        # Segunda linha: botões + data
+                        # Terceira linha: título + texto + botões
                         html.Div(
                             style={
-                                "marginTop": "4px",
+                                "marginTop": "8px",
                                 "display": "flex",
                                 "alignItems": "center",
-                                "gap": "10px",
+                                "gap": "16px",
                                 "flexWrap": "wrap",
+                                "justifyContent": "space-between",
                             },
                             children=[
-                                html.Button(
-                                    "Limpar filtros",
-                                    id="btn_limpar_filtros_limite_itajuba",
-                                    n_clicks=0,
-                                    className="filtros-button",
-                                ),
-                                html.Button(
-                                    "Baixar Relatório PDF",
-                                    id="btn_download_relatorio_limite_itajuba",
-                                    n_clicks=0,
-                                    className="filtros-button",
-                                    style={"marginLeft": "10px"},
-                                ),
                                 html.Div(
                                     style={
-                                        "padding": "6px 12px",
-                                        "borderRadius": "4px",
-                                        "backgroundColor": "#f3f4f6",
-                                        "border": "1px solid #d1d5db",
-                                        "fontSize": "12px",
+                                        "display": "flex",
+                                        "flexDirection": "column",
+                                        "gap": "2px",
+                                        "maxWidth": "520px",
                                     },
                                     children=[
-                                        html.Span(
-                                            f"Data da consulta: {DATA_HOJE}"
+                                        html.H4(
+                                            "Limite de Gasto – Itajubá por CATSER",
+                                            style={"margin": "0px"},
+                                        ),
+                                        html.Div(
+                                            [
+                                                html.Span(
+                                                    "O valor global do processo de compra não poderá exceder esse limite.",
+                                                ),
+                                                html.Br(),
+                                                html.Span(
+                                                    "O valor de cada item não poderá exceder o Saldo para Contratação.",
+                                                ),
+                                            ],
+                                            style={
+                                                "color": "red",
+                                                "fontSize": "12px",
+                                            },
                                         ),
                                     ],
                                 ),
-                                dcc.Download(
-                                    id="download_relatorio_limite_itajuba"
+                                html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "gap": "10px",
+                                        "flexWrap": "wrap",
+                                    },
+                                    children=[
+                                        html.Button(
+                                            "Limpar filtros",
+                                            id="btn_limpar_filtros_limite_itajuba",
+                                            n_clicks=0,
+                                            className="filtros-button",
+                                        ),
+                                        html.Button(
+                                            "Baixar Relatório PDF",
+                                            id="btn_download_relatorio_limite_itajuba",
+                                            n_clicks=0,
+                                            className="filtros-button",
+                                            style={"marginLeft": "4px"},
+                                        ),
+                                        html.Div(
+                                            style={
+                                                "padding": "6px 12px",
+                                                "borderRadius": "4px",
+                                                "backgroundColor": "#f3f4f6",
+                                                "border": "1px solid #d1d5db",
+                                                "fontSize": "12px",
+                                            },
+                                            children=[
+                                                html.Span(
+                                                    f"Data da consulta: {DATA_HOJE}"
+                                                ),
+                                            ],
+                                        ),
+                                        dcc.Download(
+                                            id="download_relatorio_limite_itajuba"
+                                        ),
+                                    ],
                                 ),
                             ],
                         ),
                     ],
                 ),
-                html.H4("Limite de Gasto – Itajubá por CATSER"),
                 dash_table.DataTable(
                     id="tabela_limite_itajuba",
                     columns=[
@@ -392,10 +444,10 @@ layout = html.Div(
     ],
 )
 
+
 # --------------------------------------------------
 # Callbacks
 # --------------------------------------------------
-
 
 @dash.callback(
     Output("filtro_catser_dropdown_itajuba", "options"),
@@ -425,11 +477,22 @@ def atualizar_opcoes_catser(catser_texto, valores_selecionados):
     Output("tabela_limite_itajuba", "data"),
     Output("store_dados_limite_itajuba", "data"),
     Input("filtro_catser_dropdown_itajuba", "value"),
+    Input("filtro_catser_texto_itajuba", "value"),
 )
-def atualizar_tabela_limite_itajuba(catser_lista):
+def atualizar_tabela_limite_itajuba(catser_lista, catser_texto):
     dff = df_limite_base.copy()
 
-    # Filtro apenas pela checklist (digitação não interfere na tabela)
+    # Filtro por CATSER digitado
+    if catser_texto and str(catser_texto).strip():
+        termo = str(catser_texto).strip().lower()
+        dff = dff[
+            dff[COL_CATSER]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        ]
+
+    # Filtro pela checklist
     if catser_lista:
         dff = dff[dff[COL_CATSER].isin(catser_lista)]
 
@@ -492,6 +555,10 @@ def limpar_filtros_limite_itajuba(n):
     return None, []
 
 
+# --------------------------------------------------
+# PDF
+# --------------------------------------------------
+
 wrap_style = ParagraphStyle(
     name="wrap_limite_itajuba",
     fontSize=8,
@@ -531,13 +598,12 @@ def gerar_pdf_limite_itajuba(n, dados):
     styles = getSampleStyleSheet()
     story = []
 
-    # OBTER DATA E HORA EM BRASÍLIA
+    # Data/hora Brasília
     tz_brasilia = timezone("America/Sao_Paulo")
     data_hora_brasilia = datetime.now(tz_brasilia).strftime(
         "%d/%m/%Y %H:%M:%S"
     )
 
-    # ====== DATA NO TOPO DIREITO (LINHA PRÓPRIA) ======
     data_top_table = Table(
         [
             [
@@ -565,7 +631,7 @@ def gerar_pdf_limite_itajuba(n, dados):
     story.append(data_top_table)
     story.append(Spacer(1, 0.1 * inch))
 
-    # ADICIONAR 2 LOGOS NO TOPO (lado a lado)
+    # Logos
     logos_path = []
     if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
         logos_path.append(os.path.join("assets", "brasaobrasil.png"))
@@ -606,9 +672,9 @@ def gerar_pdf_limite_itajuba(n, dados):
             story.append(logo_table)
             story.append(Spacer(1, 0.15 * inch))
 
-    # TÍTULO CENTRALIZADO (sem data)
+    # Título
     titulo_texto = (
-        "CONSULTA PDM\n"
+        "CONSULTA CATSER\n"
         "LIMITE DE GASTO COM DISPENSA DE LICITAÇÃO EM FUNÇÃO DO VALOR\n"
         "UASG: 153030 - Campus Itajubá"
     )
@@ -616,7 +682,7 @@ def gerar_pdf_limite_itajuba(n, dados):
     titulo_paragraph = Paragraph(
         titulo_texto,
         ParagraphStyle(
-            "titulo_consulta",
+            "titulo_consulta_catser",
             fontSize=10,
             alignment=TA_CENTER,
             textColor="#0b2b57",
@@ -729,8 +795,6 @@ def gerar_pdf_limite_itajuba(n, dados):
 
     doc.build(story)
     buffer.seek(0)
-
-    from dash import dcc
 
     return dcc.send_bytes(
         buffer.getvalue(), "limite_gasto_itajuba_catser.pdf"

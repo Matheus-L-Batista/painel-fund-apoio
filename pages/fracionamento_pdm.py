@@ -69,7 +69,6 @@ def carregar_dados_limite_pdm():
     if COL_DESC_ORIG not in df.columns:
         df[COL_DESC_ORIG] = ""
 
-    # Normalização do código PDM (5 dígitos)
     df[COL_PDM] = (
         df[COL_PDM]
         .astype(str)
@@ -78,7 +77,6 @@ def carregar_dados_limite_pdm():
         .str.zfill(5)
     )
 
-    # Conversão do valor empenhado
     if COL_VALOR_EMPENHADO_ORIG in df.columns:
         df["Valor Empenhado"] = (
             df[COL_VALOR_EMPENHADO_ORIG]
@@ -127,6 +125,7 @@ layout = html.Div(
         "flexDirection": "row",
         "width": "100%",
         "gap": "10px",
+        "background": "linear-gradient(to bottom, #f5f5f5 0, #f5f5f5 33%, white 33%, white 100%)",
     },
     children=[
         # Coluna esquerda
@@ -220,12 +219,11 @@ layout = html.Div(
                 "minWidth": "400px",
             },
             children=[
-                # Barra de filtros
                 html.Div(
                     id="barra_filtros_limite_itajuba_pdm",
                     className="filtros-sticky",
                     children=[
-                        # Primeira linha: filtros
+                        # Primeira linha: PDM (digitação)
                         html.Div(
                             style={
                                 "display": "flex",
@@ -234,7 +232,6 @@ layout = html.Div(
                                 "alignItems": "flex-start",
                             },
                             children=[
-                                # PDM texto
                                 html.Div(
                                     style={
                                         "minWidth": "220px",
@@ -254,11 +251,23 @@ layout = html.Div(
                                         ),
                                     ],
                                 ),
-                                # PDM checklist
+                            ],
+                        ),
+
+                        # Segunda linha: checklist PDM
+                        html.Div(
+                            style={
+                                "marginTop": "4px",
+                                "display": "flex",
+                                "flexWrap": "wrap",
+                                "gap": "10px",
+                                "alignItems": "flex-start",
+                            },
+                            children=[
                                 html.Div(
                                     style={
                                         "minWidth": "220px",
-                                        "flex": "1 1 260px",
+                                        "flex": "1 1 100%",
                                         "maxHeight": "130px",
                                         "overflowY": "auto",
                                         "border": "1px solid #d1d5db",
@@ -292,51 +301,92 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                        # Segunda linha: botões + data
+
+                        # Terceira linha: título + texto + botões
                         html.Div(
                             style={
-                                "marginTop": "4px",
+                                "marginTop": "8px",
                                 "display": "flex",
                                 "alignItems": "center",
-                                "gap": "10px",
+                                "gap": "16px",
                                 "flexWrap": "wrap",
+                                "justifyContent": "space-between",
                             },
                             children=[
-                                html.Button(
-                                    "Limpar filtros",
-                                    id="btn_limpar_filtros_limite_itajuba_pdm",
-                                    n_clicks=0,
-                                    className="filtros-button",
-                                ),
-                                html.Button(
-                                    "Baixar Relatório PDF",
-                                    id="btn_download_relatorio_limite_itajuba_pdm",
-                                    n_clicks=0,
-                                    className="filtros-button",
-                                    style={"marginLeft": "10px"},
+                                html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "flexDirection": "column",
+                                        "gap": "2px",
+                                        "maxWidth": "520px",
+                                    },
+                                    children=[
+                                        html.H4(
+                                            "Limite de Gasto – Itajubá por PDM",
+                                            style={"margin": "0px"},
+                                        ),
+                                        html.Div(
+                                            [
+                                                html.Span(
+                                                    "O valor global do processo de compra não poderá exceder esse limite.",
+                                                ),
+                                                html.Br(),
+                                                html.Span(
+                                                    "O valor de cada item não poderá exceder o Saldo para Contratação.",
+                                                ),
+                                            ],
+                                            style={
+                                                "color": "red",
+                                                "fontSize": "12px",
+                                            },
+                                        ),
+
+                                    ],
                                 ),
                                 html.Div(
                                     style={
-                                        "padding": "6px 12px",
-                                        "borderRadius": "4px",
-                                        "backgroundColor": "#f3f4f6",
-                                        "border": "1px solid #d1d5db",
-                                        "fontSize": "12px",
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "gap": "10px",
+                                        "flexWrap": "wrap",
                                     },
                                     children=[
-                                        html.Span(
-                                            f"Data da consulta: {DATA_HOJE}"
+                                        html.Button(
+                                            "Limpar filtros",
+                                            id="btn_limpar_filtros_limite_itajuba_pdm",
+                                            n_clicks=0,
+                                            className="filtros-button",
+                                        ),
+                                        html.Button(
+                                            "Baixar Relatório PDF",
+                                            id="btn_download_relatorio_limite_itajuba_pdm",
+                                            n_clicks=0,
+                                            className="filtros-button",
+                                            style={"marginLeft": "4px"},
+                                        ),
+                                        html.Div(
+                                            style={
+                                                "padding": "6px 12px",
+                                                "borderRadius": "4px",
+                                                "backgroundColor": "#f3f4f6",
+                                                "border": "1px solid #d1d5db",
+                                                "fontSize": "12px",
+                                            },
+                                            children=[
+                                                html.Span(
+                                                    f"Data da consulta: {DATA_HOJE}"
+                                                ),
+                                            ],
+                                        ),
+                                        dcc.Download(
+                                            id="download_relatorio_limite_itajuba_pdm"
                                         ),
                                     ],
-                                ),
-                                dcc.Download(
-                                    id="download_relatorio_limite_itajuba_pdm"
                                 ),
                             ],
                         ),
                     ],
                 ),
-                html.H4("Limite de Gasto – Itajubá por PDM"),
                 dash_table.DataTable(
                     id="tabela_limite_itajuba_pdm",
                     columns=[
@@ -431,12 +481,22 @@ def atualizar_opcoes_pdm(pdm_texto, valores_selecionados):
     Output("tabela_limite_itajuba_pdm", "data"),
     Output("store_dados_limite_itajuba_pdm", "data"),
     Input("filtro_pdm_lista_itajuba", "value"),
+    Input("filtro_pdm_texto_itajuba", "value"),
 )
-def atualizar_tabela_limite_itajuba_pdm(pdm_lista):
+def atualizar_tabela_limite_itajuba_pdm(pdm_lista, pdm_texto):
     dff = df_limite_pdm_base.copy()
 
-    # Filtro apenas pela checklist (digitação não interfere diretamente na tabela,
-    # apenas refina as opções disponíveis)
+    # Filtro por PDM digitado
+    if pdm_texto and str(pdm_texto).strip():
+        termo_pdm = str(pdm_texto).strip().lower()
+        dff = dff[
+            dff[COL_PDM]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo_pdm, na=False)
+        ]
+
+    # Filtro pela checklist de PDM
     if pdm_lista:
         dff = dff[dff[COL_PDM].isin(pdm_lista)]
 
@@ -542,7 +602,6 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
     styles = getSampleStyleSheet()
     story = []
 
-    # DATA E HORA EM BRASÍLIA (linha própria no topo, alinhada à direita)
     tz_brasilia = timezone("America/Sao_Paulo")
     data_hora_brasilia = datetime.now(tz_brasilia).strftime(
         "%d/%m/%Y %H:%M:%S"
@@ -577,7 +636,6 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
     story.append(data_top_table)
     story.append(Spacer(1, 0.1 * inch))
 
-    # LOGOS NO TOPO (lado a lado, se houver dois)
     logos_path = []
     if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
         logos_path.append(os.path.join("assets", "brasaobrasil.png"))
@@ -618,7 +676,6 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
             story.append(logo_table)
             story.append(Spacer(1, 0.15 * inch))
 
-    # TÍTULO CENTRALIZADO (sem data)
     titulo_texto = (
         "CONSULTA PDM\n"
         "LIMITE DE GASTO COM DISPENSA DE LICITAÇÃO EM FUNÇÃO DO VALOR\n"
@@ -717,7 +774,6 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
     ]
 
-    # Linhas com saldo <= 0 em vermelho
     for row_idx, saldo in enumerate(saldo_values, 1):
         if pd.notna(saldo) and saldo <= 0:
             table_styles.append(
