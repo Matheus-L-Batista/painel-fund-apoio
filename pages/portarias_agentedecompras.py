@@ -2,6 +2,7 @@ import dash
 from dash import html, dcc, dash_table, Input, Output, State
 import pandas as pd
 
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
@@ -78,6 +79,10 @@ def carregar_dados_portarias():
         .str.startswith("http")
     ]
 
+    # Ordena pela Data (mais recente em cima)
+    df["Data_dt"] = pd.to_datetime(df["Data"], dayfirst=True, errors="coerce")
+    df = df.sort_values("Data_dt", ascending=False).drop(columns=["Data_dt"])
+
     if cols_serv:
         todos_serv = pd.Series(df[cols_serv].values.ravel("K"), dtype="object")
         servidores_unicos = sorted(
@@ -108,7 +113,7 @@ layout = html.Div(
     children=[
         html.Div(
             id="barra_filtros_port",
-            className="filtros-sticky",  # z-index alto no CSS
+            className="filtros-sticky",
             children=[
                 html.Div(
                     style={
@@ -121,11 +126,11 @@ layout = html.Div(
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
-                                html.Label("Setor de Origem (digitação)"),
+                                html.Label("N°/Ano da Portaria"),
                                 dcc.Input(
-                                    id="filtro_setor_texto",
+                                    id="filtro_numero_ano",
                                     type="text",
-                                    placeholder="Digite parte do setor",
+                                    placeholder="Digite parte do número/ano",
                                     style={"width": "100%", "marginBottom": "6px"},
                                 ),
                             ],
@@ -228,7 +233,42 @@ layout = html.Div(
             ],
         ),
 
-        html.H4("Portarias"),
+        # Texto numa única linha com "Instrumentos de Cobrança" sublinhado
+        html.Div(
+            style={
+                "marginTop": "15px",
+                "marginBottom": "15px",
+                "display": "flex",
+                "justifyContent": "center",
+                "alignItems": "baseline",
+                "gap": "5px",
+                "color": "#b30000",
+                "fontSize": "14px",
+                "whiteSpace": "nowrap",
+            },
+            children=[
+                html.Span(
+                    "Portarias válidas para vinculação dos servidores às notas de empenho",
+                    style={"fontWeight": "bold"},
+                ),
+                html.Span(
+                    "(fase que antecede o lançamento dos ",
+                    style={"fontSize": "15px"},
+                ),
+                html.Span(
+                    "Instrumentos de Cobrança",
+                    style={
+                        "fontSize": "15px",
+                        "textDecoration": "underline",
+                    },
+                ),
+                html.Span(
+                    " no sistema contratos.gov.br)",
+                    style={"fontSize": "15px"},
+                ),
+            ],
+        ),
+
         dash_table.DataTable(
             id="tabela_portarias",
             columns=[
@@ -249,7 +289,7 @@ layout = html.Div(
             style_table={
                 "overflowX": "auto",
                 "overflowY": "auto",
-                "height": "calc(100vh - 200px)",  # ocupa até o fim da página
+                "height": "calc(100vh - 200px)",
                 "minHeight": "300px",
                 "position": "relative",
             },
@@ -268,8 +308,30 @@ layout = html.Div(
                 "textAlign": "center",
                 "position": "sticky",
                 "top": 0,
-                "zIndex": 5,  # menor que a barra de filtros (que estará com 20 no CSS)
+                "zIndex": 5,
             },
+            style_data={
+                "color": "black",
+                "backgroundColor": "white",
+            },
+            style_data_conditional=[
+                {
+                    "if": {"row_index": "odd"},
+                    "backgroundColor": "rgb(240, 240, 240)",
+                },
+            ],
+            style_cell_conditional=[
+                {
+                    "if": {"column_id": "Link_markdown"},
+                    "textAlign": "center",
+                },
+            ],
+            css=[
+                dict(
+                    selector="p",
+                    rule="margin: 0; text-align: center;",
+                ),
+            ],
         ),
         dcc.Store(id="store_dados_port"),
     ]
@@ -281,14 +343,14 @@ layout = html.Div(
 @dash.callback(
     Output("tabela_portarias", "data"),
     Output("store_dados_port", "data"),
-    Input("filtro_setor_texto", "value"),
+    Input("filtro_numero_ano", "value"),
     Input("filtro_setor_dropdown", "value"),
     Input("filtro_servidor_texto", "value"),
     Input("filtro_servidor_dropdown", "value"),
     Input("filtro_tipo", "value"),
 )
 def atualizar_tabela_portarias(
-    setor_texto, setor_drop, servidor_texto, servidor_drop, tipo_sel
+    numero_ano_texto, setor_drop, servidor_texto, servidor_drop, tipo_sel
 ):
     dff = df_portarias_base.copy()
 
@@ -298,10 +360,10 @@ def atualizar_tabela_portarias(
     if tipo_sel and tipo_sel != "TODOS":
         dff = dff[dff["TIPO"] == tipo_sel]
 
-    if setor_texto and str(setor_texto).strip():
-        termo = str(setor_texto).strip().lower()
+    if numero_ano_texto and str(numero_ano_texto).strip():
+        termo = str(numero_ano_texto).strip().lower()
         dff = dff[
-            dff["Setor de Origem"]
+            dff["N°/ANO da Portaria"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
@@ -357,12 +419,11 @@ def atualizar_tabela_portarias(
 
     return dff_display[cols_tabela].to_dict("records"), dff.to_dict("records")
 
-
 # --------------------------------------------------
 # Callback: limpar filtros
 # --------------------------------------------------
 @dash.callback(
-    Output("filtro_setor_texto", "value"),
+    Output("filtro_numero_ano", "value"),
     Output("filtro_setor_dropdown", "value"),
     Output("filtro_servidor_texto", "value"),
     Output("filtro_servidor_dropdown", "value"),
@@ -373,20 +434,24 @@ def atualizar_tabela_portarias(
 def limpar_filtros_port(n):
     return None, None, None, None, "TODOS"
 
-
 # --------------------------------------------------
 # Callback: gerar PDF
 # --------------------------------------------------
+from datetime import datetime
+from pytz import timezone
+from reportlab.platypus import Image
+import os
+
 wrap_style = ParagraphStyle(
     name="wrap",
     fontSize=8,
     leading=10,
     spaceAfter=4,
+    alignment=TA_CENTER,
 )
 
 def wrap(text):
     return Paragraph(str(text), wrap_style)
-
 
 @dash.callback(
     Output("download_relatorio_port", "data"),
@@ -407,67 +472,184 @@ def gerar_pdf_port(n, dados_port):
         pagesize=pagesize,
         rightMargin=0.3 * inch,
         leftMargin=0.3 * inch,
-        topMargin=0.4 * inch,
+        topMargin=1.3 * inch,
         bottomMargin=0.4 * inch,
     )
 
     styles = getSampleStyleSheet()
     story = []
 
-    titulo = Paragraph(
-        "Relatório de Portarias",
-        ParagraphStyle("titulo", fontSize=16, alignment=TA_CENTER, textColor="#0b2b57"),
+    # Data e hora (topo direito)
+    tz_brasilia = timezone("America/Sao_Paulo")
+    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+
+    data_top_table = Table(
+        [
+            [
+                Paragraph(
+                    data_hora_brasilia,
+                    ParagraphStyle(
+                        "data_topo",
+                        fontSize=9,
+                        alignment=TA_RIGHT,
+                        textColor="#333333",
+                    ),
+                )
+            ]
+        ],
+        colWidths=[pagesize[0] - 0.6 * inch],
     )
-    story.append(titulo)
-    story.append(Spacer(1, 0.2 * inch))
-    story.append(
-        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
+
+    data_top_table.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
     )
+
+    story.append(data_top_table)
+    story.append(Spacer(1, 0.1 * inch))
+
+    # Logos
+    logos_path = []
+    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
+        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
+    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
+        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
+
+    if logos_path:
+        logos = []
+        for logo_file in logos_path:
+            if os.path.exists(logo_file):
+                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
+                logos.append(logo)
+
+        if logos:
+            if len(logos) == 2:
+                logo_table = Table(
+                    [[logos[0], logos[1]]],
+                    colWidths=[
+                        pagesize[0] / 2 - 0.3 * inch,
+                        pagesize[0] / 2 - 0.3 * inch,
+                    ],
+                )
+            else:
+                logo_table = Table(
+                    [[logos[0]]],
+                    colWidths=[pagesize[0] - 0.6 * inch],
+                )
+
+            logo_table.setStyle(
+                TableStyle(
+                    [
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ]
+                )
+            )
+
+            story.append(logo_table)
+            story.append(Spacer(1, 0.15 * inch))
+
+    # Título
+    titulo_texto = (
+        "RELATÓRIO DE PORTARIAS<br/>"
+        "AGENTES DE COMPRAS E CONTRATOS TIPO EMPENHO<br/>"
+        "Campus Itajubá"
+    )
+
+    titulo_paragraph = Paragraph(
+        titulo_texto,
+        ParagraphStyle(
+            "titulo_portarias",
+            fontSize=10,
+            alignment=TA_CENTER,
+            textColor="#0b2b57",
+            spaceAfter=4,
+            leading=14,
+        ),
+    )
+
+    titulo_table = Table(
+        [[titulo_paragraph]],
+        colWidths=[pagesize[0] - 0.6 * inch],
+    )
+
+    titulo_table.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+
+    story.append(titulo_table)
     story.append(Spacer(1, 0.15 * inch))
 
+    # Quantidade de registros
+    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
+    story.append(Spacer(1, 0.1 * inch))
+
+    # Colunas da tabela (sem Link)
     cols = [
         "Data",
         "N°/ANO da Portaria",
         "Setor de Origem",
-        "Servidores",
         "TIPO",
-        NOME_COL_LINK_ORIGINAL,
+        "Servidores",
     ]
 
     df_pdf = df.copy()
 
+    # Monta tabela
     header = cols
     table_data = [header]
     for _, row in df_pdf[cols].iterrows():
         table_data.append([wrap(row[c]) for c in cols])
 
     page_width = pagesize[0] - 0.6 * inch
-    col_width = page_width / max(1, len(header))
-    col_widths = [col_width] * len(header)
+    
+    # Larguras proporcionais das colunas
+    col_widths = [
+        0.8 * inch,        # Data
+        0.9 * inch,        # N°/ANO da Portaria
+        1.0 * inch,        # Setor de Origem
+        1.2 * inch,        # TIPO
+        page_width - (0.8 + 0.9 + 1.0 + 1.2) * inch,  # Servidores (resto)
+    ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-    tbl.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("WORDWRAP", (0, 0), (-1, -1), True),
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-            ]
+
+    table_styles = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("WORDWRAP", (0, 0), (-1, -1), True),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+    ]
+
+    # Servidores alinhada à esquerda (coluna 4)
+    for row_idx in range(len(table_data)):
+        table_styles.append(
+            ("ALIGN", (4, row_idx), (4, row_idx), "LEFT")
         )
-    )
+
+    tbl.setStyle(TableStyle(table_styles))
 
     story.append(tbl)
+
     doc.build(story)
     buffer.seek(0)
 
     from dash import dcc
 
-    return dcc.send_bytes(buffer.getvalue(), "portarias_paisagem.pdf")
+    return dcc.send_bytes(buffer.getvalue(), "portarias_.pdf")
