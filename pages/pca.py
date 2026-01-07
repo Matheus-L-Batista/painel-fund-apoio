@@ -1,7 +1,6 @@
 import dash
 from dash import html, dcc, dash_table, Input, Output, State
 import pandas as pd
-
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
@@ -9,6 +8,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
+from datetime import datetime
 
 dash.register_page(
     __name__,
@@ -30,7 +30,6 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
-
 def conv_moeda_br(v):
     if isinstance(v, str):
         v = v.strip()
@@ -46,7 +45,6 @@ def conv_moeda_br(v):
     except (TypeError, ValueError):
         return None
 
-
 def formatar_moeda(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
@@ -55,7 +53,6 @@ def formatar_moeda(v):
     except (TypeError, ValueError):
         return ""
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
 
 # --------------------------------------------------
 # Carga e tratamento de dados
@@ -82,12 +79,14 @@ def carregar_dados_pca():
         "SRP ou Outro Valor",
         "Valor",
     ]
+
     for c in base_cols:
         if c not in df.columns:
             df[c] = None
 
     df["Valor Total"] = df["Valor Total"].apply(conv_moeda_br)
     df["Saldo"] = df["Saldo"].apply(conv_moeda_br)
+
     for c in df.columns:
         if c.startswith("Valor"):
             df[c] = df[c].apply(conv_moeda_br)
@@ -95,6 +94,7 @@ def carregar_dados_pca():
             df[c] = df[c].apply(conv_moeda_br)
 
     df["Ano"] = df["Ano"].astype("string")
+
     for c in [
         "Área requisitante",
         "Material ou Serviço",
@@ -112,7 +112,6 @@ def carregar_dados_pca():
             df[c] = df[c].astype("string")
 
     return df
-
 
 df_pca_base = carregar_dados_pca()
 
@@ -136,15 +135,15 @@ cols_grupo0 = [
     "SRP ou Outro Valor",
     "Valor",
 ]
+
 for c in cols_grupo0:
     if c not in df_pca_base.columns:
         df_pca_base[c] = None
-grupo0 = df_pca_base[cols_grupo0].copy()
 
+grupo0 = df_pca_base[cols_grupo0].copy()
 
 def gerar_grupo(indice: int) -> pd.DataFrame:
     suf = f".{indice}"
-
     col_processo = f"Processo{suf}"
     col_observ = f"Observações{suf}"
     col_objeto = f"Objeto{suf}"
@@ -182,7 +181,6 @@ def gerar_grupo(indice: int) -> pd.DataFrame:
     )
     return tabela_ren
 
-
 grupos_dinamicos = [gerar_grupo(i) for i in range(1, 32)]
 tabela_processos_unida = pd.concat([grupo0] + grupos_dinamicos, ignore_index=True)
 
@@ -199,10 +197,10 @@ for c in [
 
 tabela_processos_unida["Valor"] = tabela_processos_unida["Valor"].apply(conv_moeda_br)
 
-
 # --------------------------------------------------
 # Layout
 # --------------------------------------------------
+
 layout = html.Div(
     children=[
         html.Div(
@@ -232,9 +230,11 @@ layout = html.Div(
                                         )
                                         if str(a).strip() != ""
                                     ],
-                                    value=None,
-                                    placeholder="Todos",
-                                    clearable=True,
+                                    # instrução da imagem: ano já selecionado,
+                                    # sem placeholder "Todos" e sem clearable
+                                    value="2025",
+                                    placeholder=None,
+                                    clearable=False,
                                     style=dropdown_style,
                                 ),
                             ],
@@ -313,6 +313,16 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                    ],
+                ),
+                html.Div(
+                    style={
+                        "display": "flex",
+                        "marginTop": "4px",
+                        "alignItems": "center",
+                        "gap": "10px",
+                    },
+                    children=[
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -357,25 +367,25 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                    ],
-                ),
-                html.Div(
-                    style={"marginTop": "4px"},
-                    children=[
-                        html.Button(
-                            "Limpar filtros",
-                            id="btn_limpar_filtros_pca",
-                            n_clicks=0,
-                            className="filtros-button",
+                        html.Div(
+                            style={"marginTop": "18px"},
+                            children=[
+                                html.Button(
+                                    "Limpar filtros",
+                                    id="btn_limpar_filtros_pca",
+                                    n_clicks=0,
+                                    className="filtros-button",
+                                ),
+                                html.Button(
+                                    "Baixar Relatório PDF",
+                                    id="btn_download_relatorio_pca",
+                                    n_clicks=0,
+                                    className="filtros-button",
+                                    style={"marginLeft": "10px"},
+                                ),
+                                dcc.Download(id="download_relatorio_pca"),
+                            ],
                         ),
-                        html.Button(
-                            "Baixar Relatório PDF",
-                            id="btn_download_relatorio_pca",
-                            n_clicks=0,
-                            className="filtros-button",
-                            style={"marginLeft": "10px"},
-                        ),
-                        dcc.Download(id="download_relatorio_pca"),
                     ],
                 ),
             ],
@@ -418,13 +428,18 @@ layout = html.Div(
                                     "id": "Nome do PDM material",
                                 },
                                 {"name": "Planejado", "id": "Planejado_fmt"},
-                                {"name": "Executado", "id": "Executado_fmt"},
+                                {
+                                    "name": "Executado",
+                                    "id": "Executado_fmt",
+                                },
                                 {"name": "Saldo", "id": "Saldo_fmt"},
                             ],
                             data=[],
                             style_table={
                                 "overflowX": "auto",
-                                "maxHeight": "500px",
+                                "overflowY": "auto",
+                                "maxHeight": "420px",
+                                "width": "100%",
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -432,11 +447,50 @@ layout = html.Div(
                                 "fontSize": "12px",
                                 "whiteSpace": "normal",
                             },
+                            style_cell_conditional=[
+                                {"if": {"column_id": "DFD"}, "width": "6%"},
+                                {
+                                    "if": {"column_id": "Área requisitante"},
+                                    "width": "12%",
+                                },
+                                {
+                                    "if": {"column_id": "Material ou Serviço"},
+                                    "width": "10%",
+                                },
+                                {"if": {"column_id": "Item"}, "width": "5%"},
+                                {
+                                    "if": {"column_id": "Nome Classe/Grupo"},
+                                    "width": "20%",
+                                },
+                                {
+                                    "if": {"column_id": "Código PDM material"},
+                                    "width": "10%",
+                                },
+                                {
+                                    "if": {"column_id": "Nome do PDM material"},
+                                    "width": "16%",
+                                },
+                                {
+                                    "if": {"column_id": "Planejado_fmt"},
+                                    "width": "7%",
+                                },
+                                {
+                                    "if": {"column_id": "Executado_fmt"},
+                                    "width": "7%",
+                                },
+                                {"if": {"column_id": "Saldo_fmt"}, "width": "8%"},
+                            ],
                             style_header={
                                 "fontWeight": "bold",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
                             },
+                            style_data_conditional=[
+                                {
+                                    "if": {"filter_query": "{Saldo_num} <= 0"},
+                                    "backgroundColor": "#ffcccc",
+                                },
+                            ],
                         ),
                     ],
                 ),
@@ -468,7 +522,9 @@ layout = html.Div(
                             data=[],
                             style_table={
                                 "overflowX": "auto",
-                                "maxHeight": "500px",
+                                "overflowY": "auto",
+                                "maxHeight": "420px",
+                                "width": "100%",
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -476,6 +532,36 @@ layout = html.Div(
                                 "fontSize": "12px",
                                 "whiteSpace": "normal",
                             },
+                            style_cell_conditional=[
+                                {"if": {"column_id": "DFD"}, "width": "10%"},
+                                {
+                                    "if": {"column_id": "Área requisitante"},
+                                    "width": "12%",
+                                },
+                                {
+                                    "if": {"column_id": "Material ou Serviço"},
+                                    "width": "10%",
+                                },
+                                {"if": {"column_id": "Item"}, "width": "6%"},
+                                {
+                                    "if": {"column_id": "Processo"},
+                                    "width": "12%",
+                                },
+                                {
+                                    "if": {"column_id": "Objeto"},
+                                    "width": "25%",
+                                    "textAlign": "left",
+                                },
+                                {
+                                    "if": {"column_id": "Observações"},
+                                    "width": "15%",
+                                    "textAlign": "left",
+                                },
+                                {
+                                    "if": {"column_id": "Valor_fmt"},
+                                    "width": "10%",
+                                },
+                            ],
                             style_header={
                                 "fontWeight": "bold",
                                 "backgroundColor": "#0b2b57",
@@ -487,9 +573,12 @@ layout = html.Div(
             ],
         ),
         dcc.Store(id="store_dados_pca_processos"),
-    ]
+    ],
 )
 
+# --------------------------------------------------
+# Callbacks
+# --------------------------------------------------
 
 @dash.callback(
     Output("tabela_pca_planejamento", "data"),
@@ -537,8 +626,10 @@ def atualizar_tabelas_pca(
             ]
 
     if classe_select:
-        dff_plan = dff_plan[dff_plan["Nome Classe/Grupo"] == classe_select]
-        dff_proc = dff_proc[dff_proc["Nome Classe/Grupo"] == classe_select]
+        if "Nome Classe/Grupo" in dff_plan.columns:
+            dff_plan = dff_plan[dff_plan["Nome Classe/Grupo"] == classe_select]
+        if "Nome Classe/Grupo" in dff_proc.columns:
+            dff_proc = dff_proc[dff_proc["Nome Classe/Grupo"] == classe_select]
 
     if dfd_texto and str(dfd_texto).strip():
         termo = str(dfd_texto).strip().lower()
@@ -561,8 +652,37 @@ def atualizar_tabelas_pca(
         dff_plan = dff_plan[dff_plan["Material ou Serviço"] == tipo]
         dff_proc = dff_proc[dff_proc["Material ou Serviço"] == tipo]
 
+    # remove linhas sem processo
+    dff_proc = dff_proc[dff_proc["Processo"].astype(str).str.strip() != ""]
+
+    # Item inteiro
+    dff_plan["Item"] = (
+        dff_plan["Item"]
+        .fillna("")
+        .astype(str)
+        .apply(lambda x: str(int(float(x))) if x not in ["", "nan"] else "")
+    )
+    dff_proc["Item"] = (
+        dff_proc["Item"]
+        .fillna("")
+        .astype(str)
+        .apply(lambda x: str(int(float(x))) if x not in ["", "nan"] else "")
+    )
+
+    dff_plan["Saldo_num"] = dff_plan["Saldo"]
+
+    def marca_executado(v):
+        if v is None or pd.isna(v):
+            return ""
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return ""
+        marcador = " ✔" if v > 0 else ""
+        return formatar_moeda(v) + marcador
+
     dff_plan["Planejado_fmt"] = dff_plan["Planejado"].apply(formatar_moeda)
-    dff_plan["Executado_fmt"] = dff_plan["Executado"].apply(formatar_moeda)
+    dff_plan["Executado_fmt"] = dff_plan["Executado"].apply(marca_executado)
     dff_plan["Saldo_fmt"] = dff_plan["Saldo"].apply(formatar_moeda)
 
     dff_proc["Valor_fmt"] = dff_proc["Valor"].apply(formatar_moeda)
@@ -578,7 +698,9 @@ def atualizar_tabelas_pca(
         "Planejado_fmt",
         "Executado_fmt",
         "Saldo_fmt",
+        "Saldo_num",
     ]
+
     dados_planejamento = dff_plan[cols_planejamento].fillna("").to_dict("records")
 
     cols_processos = [
@@ -591,11 +713,11 @@ def atualizar_tabelas_pca(
         "Observações",
         "Valor_fmt",
     ]
+
     dados_processos_df = dff_proc[cols_processos].fillna("")
     dados_processos = dados_processos_df.to_dict("records")
 
     return dados_planejamento, dados_processos, dados_processos_df.to_dict("records")
-
 
 @dash.callback(
     Output("filtro_ano_pca", "value"),
@@ -609,8 +731,8 @@ def atualizar_tabelas_pca(
     prevent_initial_call=True,
 )
 def limpar_filtros_pca(n):
-    return None, None, None, None, None, None, None
-
+    # instrução da imagem: voltar sempre para 2025
+    return "2025", None, None, None, None, None, None
 
 wrap_style_pca = ParagraphStyle(
     name="wrap_pca",
@@ -619,10 +741,8 @@ wrap_style_pca = ParagraphStyle(
     spaceAfter=4,
 )
 
-
 def wrap_text_pca(text):
     return Paragraph(str(text), wrap_style_pca)
-
 
 @dash.callback(
     Output("download_relatorio_pca", "data"),
@@ -633,7 +753,6 @@ def wrap_text_pca(text):
 def gerar_pdf_pca(n, dados_pca):
     if not n or not dados_pca:
         return None
-
     df = pd.DataFrame(dados_pca)
 
     buffer = BytesIO()
@@ -659,9 +778,9 @@ def gerar_pdf_pca(n, dados_pca):
             textColor=colors.HexColor("#0b2b57"),
         ),
     )
+
     story.append(titulo)
     story.append(Spacer(1, 0.2 * inch))
-
     story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
     story.append(Spacer(1, 0.15 * inch))
 
@@ -675,14 +794,15 @@ def gerar_pdf_pca(n, dados_pca):
         "Observações",
         "Valor",
     ]
-    cols = [c for c in cols if c in df.columns]
 
+    cols = [c for c in cols if c in df.columns]
     df_pdf = df.copy()
     if "Valor" in df_pdf.columns:
         df_pdf["Valor"] = df_pdf["Valor"].apply(formatar_moeda)
 
     header = cols
     table_data = [header]
+
     for _, row in df_pdf[cols].iterrows():
         table_data.append([wrap_text_pca(row[c]) for c in cols])
 
