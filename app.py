@@ -1,6 +1,7 @@
 import dash
 from dash import Dash, html, dcc, callback, Input, Output
 
+
 app = Dash(
     __name__,
     use_pages=True,
@@ -9,16 +10,16 @@ app = Dash(
 )
 server = app.server
 
-# LINKS NORMAIS (já sem fracionamento e sem as duas portarias,
-# que ficarão dentro das caixinhas)
+
+# LINKS NORMAIS (sem Processos de Compras e Status do Processo,
+# pois eles ficam dentro da caixinha "Processos")
 menu_links = [
-    {"label": "Processos de Compras", "href": "/processos-de-compras"},
-    {"label": "Status do Processo", "href": "/statusdoprocesso"},
     {"label": "Contratos", "href": "/contratos"},
     {"label": "Fiscais", "href": "/fiscais"},
     {"label": "Plano de Contratação Anual", "href": "/pca"},
     {"label": "Controle de Atas", "href": "/atas"},
 ]
+
 
 app.layout = html.Div(
     className="app-root",
@@ -71,12 +72,64 @@ app.layout = html.Div(
     ],
 )
 
+
 @callback(
     Output("sidebar-menu", "children"),
     Input("url", "pathname"),
 )
 def atualizar_menu(pathname):
     itens = []
+
+    # =========================
+    # 0) Caixa Processos
+    # =========================
+    processos_paths = [
+        "/processos-de-compras",   # ajuste se o path da página for diferente
+        "/statusdoprocesso",
+    ]
+    processos_ativo = pathname in processos_paths
+
+    pr_btn_classes = "processos-toggle"
+    pr_content_classes = "processos-content"
+    if processos_ativo:
+        pr_btn_classes += " active"
+        pr_content_classes += " expanded"
+
+    processos_box = html.Div(
+        className="processos-container",
+        children=[
+            html.Div(
+                "Processos",
+                id="btn-processos",
+                className=pr_btn_classes,
+            ),
+            html.Div(
+                id="box-processos",
+                className=pr_content_classes,
+                children=[
+                    dcc.Link(
+                        "Processos de Compras",
+                        href="/processos-de-compras",
+                        className=(
+                            "processos-subbutton processos-subbutton-active"
+                            if pathname == "/processos-de-compras"
+                            else "processos-subbutton"
+                        ),
+                    ),
+                    dcc.Link(
+                        "Status do Processo",
+                        href="/statusdoprocesso",
+                        className=(
+                            "processos-subbutton processos-subbutton-active"
+                            if pathname == "/statusdoprocesso"
+                            else "processos-subbutton"
+                        ),
+                    ),
+                ],
+            ),
+        ],
+    )
+    itens.append(processos_box)
 
     # =========================
     # 1) Caixa Fracionamento
@@ -195,6 +248,22 @@ def atualizar_menu(pathname):
 
     return itens
 
+
+# Abre/fecha Processos
+@callback(
+    Output("btn-processos", "className"),
+    Output("box-processos", "className"),
+    Input("btn-processos", "n_clicks"),
+    prevent_initial_call=True,
+)
+def toggle_processos(n):
+    base_btn = "processos-toggle"
+    base_box = "processos-content"
+    if n and n % 2 == 1:
+        return base_btn + " active", base_box + " expanded"
+    return base_btn, base_box
+
+
 # Abre/fecha Fracionamento
 @callback(
     Output("btn-fracionamento", "className"),
@@ -209,6 +278,7 @@ def toggle_fracionamento(n):
         return base_btn + " active", base_box + " expanded"
     return base_btn, base_box
 
+
 # Abre/fecha Portarias
 @callback(
     Output("btn-portarias", "className"),
@@ -222,6 +292,7 @@ def toggle_portarias(n):
     if n and n % 2 == 1:
         return base_btn + " active", base_box + " expanded"
     return base_btn, base_box
+
 
 if __name__ == "__main__":
     app.run(debug=True)
