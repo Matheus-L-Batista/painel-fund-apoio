@@ -1,18 +1,28 @@
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
+from dash.exceptions import PreventUpdate
 
 import pandas as pd
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    Image,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from reportlab.lib import colors
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+from pytz import timezone
+import os
 
 # --------------------------------------------------
 # Registro da página
@@ -496,7 +506,6 @@ def atualizar_tabela_proc(
         "%d/%m/%Y"
     )
 
-    # Ordenar pela Data de Entrada (mais recente)
     dff_display["Data_Entrada_dt"] = pd.to_datetime(
         dff_display["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     )
@@ -579,7 +588,6 @@ def atualizar_tabela_proc(
         ),
     ]
 
-    # Gráfico de status (pizza)
     if dff.empty:
         fig_status = px.pie(title="Porcentagem de Status")
         fig_valor_mes = px.bar(title="Processos Concluídos por Ano")
@@ -614,9 +622,6 @@ def atualizar_tabela_proc(
             showlegend=True,
         )
 
-        # -------------------------------
-        # GRÁFICO FIXO: colunas + linha
-        # -------------------------------
         dff_conc_global = df_proc_base[df_proc_base["Status"] == "Concluído"].copy()
 
         if dff_conc_global.empty:
@@ -635,7 +640,6 @@ def atualizar_tabela_proc(
 
             fig_valor_mes = make_subplots(specs=[[{"secondary_y": True}]])
 
-            # Coluna 1: Média por Processo (AZUL, mais larga)
             fig_valor_mes.add_trace(
                 go.Bar(
                     x=grp_ano["Ano"],
@@ -647,7 +651,6 @@ def atualizar_tabela_proc(
                 secondary_y=False,
             )
 
-            # Coluna 2: Valor Contratado Total (VERMELHO, mais estreita)
             fig_valor_mes.add_trace(
                 go.Bar(
                     x=grp_ano["Ano"],
@@ -659,7 +662,6 @@ def atualizar_tabela_proc(
                 secondary_y=False,
             )
 
-            # Linha: Número de Processos Concluídos (VERDE)
             fig_valor_mes.add_trace(
                 go.Scatter(
                     x=grp_ano["Ano"],
@@ -672,7 +674,7 @@ def atualizar_tabela_proc(
             )
 
             fig_valor_mes.update_layout(
-                barmode="overlay",  # barras sobrepostas para destacar a azul
+                barmode="overlay",
                 title="Processos Concluídos por Ano",
                 title_x=0.5,
                 xaxis_title="Ano",
@@ -728,62 +730,63 @@ def limpar_filtros_proc(n):
     return None, ANO_ATUAL, None, None, None, None, None, None
 
 # ----------------------------------------
-# Callback: gerar PDF (paisagem, header repetido)
+# Estilos de texto para PDF (COMPRAS)
 # ----------------------------------------
-wrap_style = ParagraphStyle(
-    name="wrap",
-    fontSize=8,
-    leading=10,
-    spaceAfter=4,
+wrap_style_compras = ParagraphStyle(
+    name="wrap_compras",
+    fontSize=7,
+    leading=9,
+    spaceAfter=2,
+    wordWrap="CJK",
 )
 
-def wrap(text):
-    return Paragraph(str(text), wrap_style)
-
-@dash.callback(
-    Output("download_relatorio_proc", "data"),
-    Input("btn_download_relatorio_proc", "n_clicks"),
-    State("store_dados_proc", "data"),
-    prevent_initial_call=True,
+simple_style_compras = ParagraphStyle(
+    name="simple_compras",
+    fontSize=7,
+    alignment=TA_CENTER,
 )
-def gerar_pdf_proc(n, dados_proc):
-    if not n or not dados_proc:
-        return None
-    df = pd.DataFrame(dados_proc)
 
-    buffer = BytesIO()
+header_cell_style_compras = ParagraphStyle(
+    name="header_cell_compras",
+    fontSize=7,
+    alignment=TA_CENTER,
+    fontName="Helvetica-Bold",
+    textColor=colors.HexColor("#0b2b57"),
+)
 
-    pagesize = landscape(A4)
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=pagesize,
-        rightMargin=0.3 * inch,
-        leftMargin=0.3 * inch,
-        topMargin=0.4 * inch,
-        bottomMargin=0.4 * inch,
-    )
+def wrap_pdf_compras(text):
+    return Paragraph(str(text), wrap_style_compras)
 
-    styles = getSampleStyleSheet()
-    story = []
+def simple_pdf_compras(text):
+    return Paragraph(str(text), simple_style_compras)
 
-    titulo = Paragraph(
-        "Relatório de Processos de Compras",
-        ParagraphStyle(
-            "titulo", fontSize=16, alignment=TA_CENTER, textColor="#0b2b57"
-        ),
-    )
+def header_pdf_compras(text):
+    return Paragraph(str(text), header_cell_style_compras)
 
-    story.append(titulo)
-    story.append(Spacer(1, 0.2 * inch))
+# --------------------------------------------------
+# Função: criar tabela de dados do processo (COMPRAS)
+# --------------------------------------------------
+def criar_tabela_dados_compras(story, df, pagesize):
+    if df.empty:
+        return
 
     story.append(
         Paragraph(
-            f"Total de registros: {len(df)}",
-            styles["Normal"],
+            "DADOS DOS PROCESSOS DE COMPRAS",
+            ParagraphStyle(
+                "subtitulo_compras",
+                fontSize=10,
+                alignment=TA_LEFT,
+                textColor=colors.white,
+                fontName="Helvetica-Bold",
+                spaceAfter=4,
+                leading=12,
+                backColor=colors.HexColor("#0b2b57"),
+                borderPadding=4,
+            ),
         )
     )
-
-    story.append(Spacer(1, 0.15 * inch))
+    story.append(Spacer(1, 0.08 * inch))
 
     cols = [
         "Solicitante",
@@ -798,51 +801,205 @@ def gerar_pdf_proc(n, dados_proc):
         "Classificação dos processos não concluídos",
         "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº (com pontos e traços)",
     ]
+    cols = [c for c in cols if c in df.columns]
 
+    df_pdf = df.copy()
+
+    header = [header_pdf_compras(c) for c in cols]
+    table_data = [header]
+
+    for _, row in df_pdf[cols].iterrows():
+        linha = []
+        for c in cols:
+            valor = "" if pd.isna(row[c]) else str(row[c]).strip()
+            if c in ["Objeto"]:
+                linha.append(wrap_pdf_compras(valor))
+            else:
+                linha.append(simple_pdf_compras(valor))
+        table_data.append(linha)
+
+    col_widths = [
+        1.0 * inch,  # Solicitante
+        1.3 * inch,  # Número do Processo
+        3.4 * inch,  # Objeto
+        1.4 * inch,  # Modalidade
+        1.3 * inch,  # Preço Estimado
+        1.3 * inch,  # Valor Contratado
+        1.1 * inch,  # Status
+        1.0 * inch,  # Data de Entrada
+        1.0 * inch,  # Data Finalização
+        1.4 * inch,  # Classificação
+        1.6 * inch,  # Contratação Reinstruída
+    ]
+    col_widths = col_widths[: len(cols)]
+
+    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+    style_list = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("FONTSIZE", (0, 0), (-1, 0), 7),
+        ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 1), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTSIZE", (0, 1), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
+        ("WORDWRAP", (0, 0), (-1, -1), True),
+    ]
+
+    tbl.setStyle(TableStyle(style_list))
+    story.append(tbl)
+
+# --------------------------------------------------
+# Callback: gerar PDF de processos de compras
+# --------------------------------------------------
+@dash.callback(
+    Output("download_relatorio_proc", "data"),
+    Input("btn_download_relatorio_proc", "n_clicks"),
+    State("store_dados_proc", "data"),
+    prevent_initial_call=True,
+)
+def gerar_pdf_proc(n, dados_proc):
+    if not n or not dados_proc:
+        return None
+
+    df = pd.DataFrame(dados_proc)
+
+    # aplicar MESMA formatação da tabela
     df_pdf = df.copy()
     df_pdf["PREÇO ESTIMADO"] = df_pdf["PREÇO ESTIMADO"].apply(formatar_moeda)
     df_pdf["Valor Contratado"] = df_pdf["Valor Contratado"].apply(formatar_moeda)
     df_pdf["Data de Entrada"] = pd.to_datetime(
-        df_pdf["Data de Entrada"], errors="coerce"
+        df_pdf["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     ).dt.strftime("%d/%m/%Y")
     df_pdf["Data finalização"] = pd.to_datetime(
         df_pdf["Data finalização"], errors="coerce"
     ).dt.strftime("%d/%m/%Y")
 
-    header = cols
-    table_data = [header]
+    buffer = BytesIO()
+    pagesize = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=pagesize,
+        rightMargin=0.15 * inch,
+        leftMargin=0.15 * inch,
+        topMargin=1.3 * inch,
+        bottomMargin=0.4 * inch,
+    )
 
-    for _, row in df_pdf[cols].iterrows():
-        table_data.append([wrap(row[c]) for c in cols])
+    styles = getSampleStyleSheet()
+    story = []
 
-    page_width = pagesize[0] - 0.6 * inch
-    col_width = page_width / max(1, len(header))
-    col_widths = [col_width] * len(header)
-
-    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-
-    tbl.setStyle(
+    tz_brasilia = timezone("America/Sao_Paulo")
+    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+    data_top_table = Table(
+        [
+            [
+                Paragraph(
+                    data_hora_brasilia,
+                    ParagraphStyle(
+                        "data_topo_compras",
+                        fontSize=9,
+                        alignment=TA_RIGHT,
+                        textColor="#333333",
+                    ),
+                )
+            ]
+        ],
+        colWidths=[pagesize[0] - 0.3 * inch],
+    )
+    data_top_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("WORDWRAP", (0, 0), (-1, -1), True),
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
             ]
         )
     )
+    story.append(data_top_table)
+    story.append(Spacer(1, 0.1 * inch))
 
-    story.append(tbl)
+    logos_path = []
+    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
+        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
+    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
+        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
+
+    if logos_path:
+        logos = []
+        for logo_file in logos_path:
+            if os.path.exists(logo_file):
+                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
+                logos.append(logo)
+
+        if logos:
+            if len(logos) == 2:
+                logo_table = Table(
+                    [[logos[0], logos[1]]],
+                    colWidths=[
+                        pagesize[0] / 2 - 0.15 * inch,
+                        pagesize[0] / 2 - 0.15 * inch,
+                    ],
+                )
+            else:
+                logo_table = Table(
+                    [[logos[0]]],
+                    colWidths=[pagesize[0] - 0.3 * inch],
+                )
+
+            logo_table.setStyle(
+                TableStyle(
+                    [
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ]
+                )
+            )
+            story.append(logo_table)
+            story.append(Spacer(1, 0.15 * inch))
+
+    titulo_texto = "RELATÓRIO DE PROCESSOS DE COMPRAS"
+    titulo_paragraph = Paragraph(
+        titulo_texto,
+        ParagraphStyle(
+            "titulo_compras",
+            fontSize=10,
+            alignment=TA_CENTER,
+            textColor="#0b2b57",
+            spaceAfter=4,
+            leading=14,
+        ),
+    )
+    titulo_table = Table(
+        [[titulo_paragraph]],
+        colWidths=[pagesize[0] - 0.3 * inch],
+    )
+    titulo_table.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    story.append(titulo_table)
+    story.append(Spacer(1, 0.15 * inch))
+
+    story.append(Paragraph(f"Total de registros: {len(df_pdf)}", styles["Normal"]))
+    story.append(Spacer(1, 0.1 * inch))
+
+    criar_tabela_dados_compras(story, df_pdf, pagesize)
 
     doc.build(story)
-
     buffer.seek(0)
-    from dash import dcc
-    return dcc.send_bytes(buffer.getvalue(), "processos_de_compras_paisagem.pdf")
+
+    return dcc.send_bytes(
+        buffer.getvalue(),
+        f"processos_compras_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+    )
