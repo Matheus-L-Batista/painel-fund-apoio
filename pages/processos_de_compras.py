@@ -10,8 +10,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
-
 
 # --------------------------------------------------
 # Registro da página
@@ -23,13 +24,11 @@ dash.register_page(
     title="Processos de Compras",
 )
 
-
 URL_PROCESSOS = (
     "https://docs.google.com/spreadsheets/d/"
     "1YNg6WRww19Gf79ISjQtb8tkzjX2lscHirnR_F3wGjog/"
     "gviz/tq?tqx=out:csv&sheet=BI%20-%20Itajub%C3%A1"
 )
-
 
 # ----------------------------------------
 # Carga e tratamento dos dados
@@ -109,7 +108,6 @@ def carregar_dados_processos():
 
     return df
 
-
 df_proc_base = carregar_dados_processos()
 ANO_ATUAL = datetime.now().year
 
@@ -120,7 +118,6 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
-
 def formatar_moeda(v):
     return (
         f"R$ {v:,.2f}"
@@ -129,13 +126,12 @@ def formatar_moeda(v):
         .replace("X", ".")
     )
 
-
 # ----------------------------------------
 # Layout
 # ----------------------------------------
 layout = html.Div(
     children=[
-        # Barra de filtros (sticky dentro da main-content)
+        # Barra de filtros
         html.Div(
             id="barra_filtros_proc",
             className="filtros-sticky",
@@ -414,7 +410,7 @@ layout = html.Div(
                         "overflowX": "auto",
                         "overflowY": "auto",
                         "maxHeight": "500px",
-                        "position": "relative",  # para sticky header
+                        "position": "relative",
                     },
                     style_cell={
                         "textAlign": "center",
@@ -439,7 +435,6 @@ layout = html.Div(
         ),
     ],
 )
-
 
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
@@ -501,7 +496,7 @@ def atualizar_tabela_proc(
         "%d/%m/%Y"
     )
 
-    # Ordenar pela Data de Entrada (mais recente para mais antiga)
+    # Ordenar pela Data de Entrada (mais recente)
     dff_display["Data_Entrada_dt"] = pd.to_datetime(
         dff_display["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     )
@@ -584,9 +579,10 @@ def atualizar_tabela_proc(
         ),
     ]
 
+    # Gráfico de status (pizza)
     if dff.empty:
         fig_status = px.pie(title="Porcentagem de Status")
-        fig_valor_mes = px.bar(title="Valor dos Processos Concluídos por Mês")
+        fig_valor_mes = px.bar(title="Processos Concluídos por Ano")
     else:
         grp_status = (
             dff.groupby("Status", as_index=False)["Numero do Processo"]
@@ -618,60 +614,77 @@ def atualizar_tabela_proc(
             showlegend=True,
         )
 
-        dff_conc = dff[dff["Status"] == "Concluído"].copy()
+        # -------------------------------
+        # GRÁFICO FIXO: colunas + linha
+        # -------------------------------
+        dff_conc_global = df_proc_base[df_proc_base["Status"] == "Concluído"].copy()
 
-        if dff_conc.empty:
-            fig_valor_mes = px.bar(title="Valor dos Processos Concluídos por Mês")
+        if dff_conc_global.empty:
+            fig_valor_mes = px.bar(title="Processos Concluídos por Ano")
         else:
-            grp_mes = (
-                dff_conc.groupby("Mes_finalizacao", as_index=False)["Valor Contratado"]
-                .sum()
+            grp_ano = (
+                dff_conc_global.groupby("Ano", as_index=False)
+                .agg(
+                    Valor_Contratado_Total=("Valor Contratado", "sum"),
+                    Qtd_Processos=("Numero do Processo", "count"),
+                )
+            )
+            grp_ano["Media_Por_Processo"] = (
+                grp_ano["Valor_Contratado_Total"] / grp_ano["Qtd_Processos"]
             )
 
-            meses_ordem = [
-                "janeiro",
-                "fevereiro",
-                "março",
-                "abril",
-                "maio",
-                "junho",
-                "julho",
-                "agosto",
-                "setembro",
-                "outubro",
-                "novembro",
-                "dezembro",
-            ]
+            fig_valor_mes = make_subplots(specs=[[{"secondary_y": True}]])
 
-            grp_mes["Mes_finalizacao"] = pd.Categorical(
-                grp_mes["Mes_finalizacao"],
-                categories=meses_ordem,
-                ordered=True,
+            # Coluna 1: Média por Processo (AZUL, mais larga)
+            fig_valor_mes.add_trace(
+                go.Bar(
+                    x=grp_ano["Ano"],
+                    y=grp_ano["Media_Por_Processo"],
+                    name="Média por Processo",
+                    marker_color="blue",
+                    width=0.5,
+                ),
+                secondary_y=False,
             )
 
-            grp_mes = grp_mes.sort_values("Mes_finalizacao")
-            grp_mes["Valor_fmt"] = grp_mes["Valor Contratado"].apply(formatar_moeda)
-
-            fig_valor_mes = px.bar(
-                grp_mes,
-                x="Valor Contratado",
-                y="Mes_finalizacao",
-                orientation="h",
-                text="Valor_fmt",
-                title="Valor dos Processos Concluídos por Mês",
+            # Coluna 2: Valor Contratado Total (VERMELHO, mais estreita)
+            fig_valor_mes.add_trace(
+                go.Bar(
+                    x=grp_ano["Ano"],
+                    y=grp_ano["Valor_Contratado_Total"],
+                    name="Valor Contratado Total",
+                    marker_color="red",
+                    width=0.3,
+                ),
+                secondary_y=False,
             )
 
-            fig_valor_mes.update_traces(
-                marker_color="#003A70",
-                textposition="outside",
+            # Linha: Número de Processos Concluídos (VERDE)
+            fig_valor_mes.add_trace(
+                go.Scatter(
+                    x=grp_ano["Ano"],
+                    y=grp_ano["Qtd_Processos"],
+                    name="Número de Processos Concluídos",
+                    mode="lines+markers",
+                    line=dict(color="green", width=3),
+                ),
+                secondary_y=True,
             )
 
             fig_valor_mes.update_layout(
+                barmode="overlay",  # barras sobrepostas para destacar a azul
+                title="Processos Concluídos por Ano",
                 title_x=0.5,
-                xaxis_title="Valor Contratado (R$)",
-                yaxis_title="Mês de Finalização",
+                xaxis_title="Ano",
                 plot_bgcolor="#FFFFFF",
                 paper_bgcolor="#FFFFFF",
+            )
+
+            fig_valor_mes.update_yaxes(
+                title_text="Valores (R$)", secondary_y=False
+            )
+            fig_valor_mes.update_yaxes(
+                title_text="Número de Processos Concluídos", secondary_y=True
             )
 
     cols_tabela = [
@@ -696,7 +709,6 @@ def atualizar_tabela_proc(
         fig_valor_mes,
     )
 
-
 # ----------------------------------------
 # Callback: limpar filtros
 # ----------------------------------------
@@ -715,7 +727,6 @@ def atualizar_tabela_proc(
 def limpar_filtros_proc(n):
     return None, ANO_ATUAL, None, None, None, None, None, None
 
-
 # ----------------------------------------
 # Callback: gerar PDF (paisagem, header repetido)
 # ----------------------------------------
@@ -726,10 +737,8 @@ wrap_style = ParagraphStyle(
     spaceAfter=4,
 )
 
-
 def wrap(text):
     return Paragraph(str(text), wrap_style)
-
 
 @dash.callback(
     Output("download_relatorio_proc", "data"),
