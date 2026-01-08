@@ -730,6 +730,7 @@ def limpar_filtros_proc(n):
     return None, ANO_ATUAL, None, None, None, None, None, None
 
 # ----------------------------------------
+# ----------------------------------------
 # Estilos de texto para PDF (COMPRAS)
 # ----------------------------------------
 wrap_style_compras = ParagraphStyle(
@@ -751,7 +752,7 @@ header_cell_style_compras = ParagraphStyle(
     fontSize=7,
     alignment=TA_CENTER,
     fontName="Helvetica-Bold",
-    textColor=colors.HexColor("#0b2b57"),
+    textColor=colors.white,  # ✅ TEXTO BRANCO
 )
 
 def wrap_pdf_compras(text):
@@ -767,6 +768,14 @@ def header_pdf_compras(text):
 # Função: criar tabela de dados do processo (COMPRAS)
 # --------------------------------------------------
 def criar_tabela_dados_compras(story, df, pagesize):
+    """
+    Cria tabela de dados de compras com cabeçalho azul e texto branco
+    
+    Args:
+        story: Lista de elementos do PDF
+        df: DataFrame com dados formatados
+        pagesize: Tamanho da página (landscape)
+    """
     if df.empty:
         return
 
@@ -799,7 +808,7 @@ def criar_tabela_dados_compras(story, df, pagesize):
         "Data de Entrada",
         "Data finalização",
         "Classificação dos processos não concluídos",
-        "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº (com pontos e traços)",
+        "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº",
     ]
     cols = [c for c in cols if c in df.columns]
 
@@ -818,29 +827,37 @@ def criar_tabela_dados_compras(story, df, pagesize):
                 linha.append(simple_pdf_compras(valor))
         table_data.append(linha)
 
+    # ✅ LARGURAS AJUSTADAS
     col_widths = [
-        1.0 * inch,  # Solicitante
-        1.3 * inch,  # Número do Processo
-        3.4 * inch,  # Objeto
-        1.4 * inch,  # Modalidade
-        1.3 * inch,  # Preço Estimado
-        1.3 * inch,  # Valor Contratado
-        1.1 * inch,  # Status
-        1.0 * inch,  # Data de Entrada
-        1.0 * inch,  # Data Finalização
-        1.4 * inch,  # Classificação
-        1.6 * inch,  # Contratação Reinstruída
+        0.7 * inch,   # Solicitante
+        1.2 * inch,   # Número do Processo
+        1.2 * inch,   # Objeto
+        1.2 * inch,   # Modalidade
+        1.1 * inch,   # Preço Estimado
+        1.1 * inch,   # Valor Contratado
+        0.9 * inch,   # Status
+        0.9 * inch,   # Data de Entrada
+        0.9 * inch,   # Data Finalização
+        1.2 * inch,   # Classificação
+        1.0 * inch,   # Contratação Reinstruída
     ]
     col_widths = col_widths[: len(cols)]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
 
+    # ✅ ESTILO: FUNDO AZUL, TEXTO BRANCO
     style_list = [
+        # Cabeçalho: FUNDO AZUL (#0b2b57), TEXTO BRANCO
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("FONTSIZE", (0, 0), (-1, 0), 7),
         ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.5, colors.HexColor("#0b2b57")),
+
+        # Corpo da tabela
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (0, 1), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -925,6 +942,7 @@ def gerar_pdf_proc(n, dados_proc):
     story.append(data_top_table)
     story.append(Spacer(1, 0.1 * inch))
 
+    # Logos
     logos_path = []
     if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
         logos_path.append(os.path.join("assets", "brasaobrasil.png"))
@@ -964,6 +982,7 @@ def gerar_pdf_proc(n, dados_proc):
             story.append(logo_table)
             story.append(Spacer(1, 0.15 * inch))
 
+    # Título
     titulo_texto = "RELATÓRIO DE PROCESSOS DE COMPRAS"
     titulo_paragraph = Paragraph(
         titulo_texto,
@@ -991,9 +1010,11 @@ def gerar_pdf_proc(n, dados_proc):
     story.append(titulo_table)
     story.append(Spacer(1, 0.15 * inch))
 
+    # Total de registros
     story.append(Paragraph(f"Total de registros: {len(df_pdf)}", styles["Normal"]))
     story.append(Spacer(1, 0.1 * inch))
 
+    # Criar tabela com dados
     criar_tabela_dados_compras(story, df_pdf, pagesize)
 
     doc.build(story)
