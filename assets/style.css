@@ -1,5 +1,5 @@
 /* ========================= */
-/* RESET GLOBAL              */
+/* RESET GLOBAL */
 /* ========================= */
 
 html, body {
@@ -7,26 +7,25 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;      /* impede rolagem */
+    overflow: hidden; /* quem vai rolar é só .main-content */
 }
 
+/* conteúdo principal do Dash */
 #_dash-app-content {
     height: 100%;
     overflow: hidden;
 }
 
-
 /* ========================= */
-/* VARIÁVEIS GERAIS          */
+/* VARIÁVEIS GERAIS */
 /* ========================= */
 
 :root {
-    --sidebar-width: 280px;   /* largura da barra azul */
+    --sidebar-width: 280px; /* largura da barra azul */
 }
 
-
 /* ========================= */
-/* LAYOUT PRINCIPAL          */
+/* LAYOUT PRINCIPAL */
 /* ========================= */
 
 .app-root {
@@ -38,22 +37,21 @@ html, body {
 .app-container {
     display: flex;
     width: 100%;
-    height: 100vh;
-    overflow: hidden;
+    height: 100vh;   /* menu + conteúdo ocupam a viewport inteira */
+    overflow: hidden; /* impede rolagem no container geral */
 }
 
-
 /* ========================= */
-/* SIDEBAR                   */
+/* SIDEBAR */
 /* ========================= */
 
 .sidebar {
     width: var(--sidebar-width);
-    height: 100%;
+    height: 100%;           /* menu ocupando a altura toda da tela */
     padding: 24px 20px;
     background-color: #0b2b57;
     color: white;
-    overflow: hidden;
+    overflow: hidden;       /* sem rolagem no menu */
     box-sizing: border-box;
     flex-shrink: 0;
 }
@@ -114,17 +112,16 @@ html, body {
     font-weight: 600;
 }
 
-
 /* ========================= */
-/* CONTEÚDO PRINCIPAL        */
+/* CONTEÚDO PRINCIPAL */
 /* ========================= */
 
 .main-content {
     flex: 1;
-    height: 100%;
-    padding: 0 0 0 8px;   /* mantém distância da barra azul, sem espaço embaixo */
+    height: 100%;                 /* acompanha a altura do container (100vh) */
+    padding: 0 0 0 8px;           /* distância da barra azul */
     background-color: #ffffff;
-    overflow: hidden;     /* sem rolagem interna */
+    overflow-y: auto;             /* rolagem só aqui (segunda coluna) */
     box-sizing: border-box;
 }
 
@@ -133,23 +130,21 @@ html, body {
     min-height: 100%;
 }
 
-
 /* ========================= */
-/* BARRA DE FILTROS STICKY   */
+/* BARRA DE FILTROS STICKY */
 /* ========================= */
 
 .filtros-sticky {
-    position: sticky;      /* fixa dentro da área branca */
+    position: sticky; /* fixa dentro da área branca */
     top: 0;
     z-index: 10;
     background-color: #ffffff;
-    padding: 4px 0 8px 0;  /* sem padding lateral, ocupa toda largura da main-content */
+    padding: 4px 0 8px 0; /* sem padding lateral, ocupa toda largura da main-content */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-
 /* ========================= */
-/* HOME                      */
+/* HOME */
 /* ========================= */
 
 /* HOME – imagem ocupando toda a área ao lado da sidebar */
@@ -159,13 +154,13 @@ html, body {
     background-position: center;
     background-size: cover;
     width: 100%;
-    min-height: 100vh;   /* força ocupar a tela inteira */
+    min-height: 100vh; /* força ocupar a tela inteira */
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;  /* mantém a home “travada” visualmente */
 }
-
 
 /* sobreposição azul 80% de transparência */
 .home-overlay {
@@ -177,9 +172,8 @@ html, body {
     background-color: rgba(0, 43, 87, 0.027);
 }
 
-
 /* ========================= */
-/* COMPONENTES PADRÃO        */
+/* COMPONENTES PADRÃO */
 /* ========================= */
 
 .cards-container {
@@ -216,7 +210,6 @@ html, body {
     margin-bottom: 25px;
 }
 
-
 /* ========================= */
 /* LIMPEZA FINAL DE OVERFLOW */
 /* ========================= */
@@ -229,67 +222,66 @@ html, body {
     overflow: visible !important;
 }
 
-
 /* ========================= */
-/* MOBILE                    */
+/* MOBILE */
 /* ========================= */
 
 @media (max-width: 768px) {
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+    }
 
-  .sidebar {
-    position: relative;
-    width: 100%;
-    height: auto;
-  }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 0 0 10px 0;
+        /* continua com overflow-y: auto; herdado */
+    }
 
-  .main-content {
-    margin-left: 0;
-    width: 100%;
-    padding: 0 0 10px 0;
-  }
+    .sidebar-menu {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 
-  .sidebar-menu {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
+    .sidebar-button {
+        font-size: 13px;
+        padding: 10px;
+    }
 
-  .sidebar-button {
-    font-size: 13px;
-    padding: 10px;
-  }
+    .cards-container {
+        flex-direction: column;
+    }
 
-  .cards-container {
-    flex-direction: column;
-  }
+    .charts-row {
+        flex-direction: column;
+    }
 
-  .charts-row {
-    flex-direction: column;
-  }
+    .charts-row > div {
+        width: 100% !important;
+    }
 
-  .charts-row > div {
-    width: 100% !important;
-  }
-
-  .filtros-sticky {
-    position: static;
-    box-shadow: none;
-    padding: 6px 0 8px 0;
-  }
+    .filtros-sticky {
+        position: static;
+        box-shadow: none;
+        padding: 6px 0 8px 0;
+    }
 }
 
 @media (max-width: 768px) {
-  .card-value {
-    font-size: 18px;
-  }
-  .card-title {
-    font-size: 13px;
-  }
+    .card-value {
+        font-size: 18px;
+    }
+
+    .card-title {
+        font-size: 13px;
+    }
 }
 
-
 /* ========================= */
-/* Processos - Accordion     */
+/* Processos - Accordion */
 /* ========================= */
 
 .processos-container {
@@ -338,7 +330,7 @@ html, body {
 
 /* Quando expandido */
 .processos-content.expanded {
-    max-height: 200px;  /* ajuste se precisar */
+    max-height: 200px; /* ajuste se precisar */
 }
 
 /* Estilo base dos sub-links */
@@ -363,10 +355,9 @@ html, body {
 /* Estado ativo dos sublinks de processos */
 .processos-subbutton-active {
     background: #ffffff;
-    color: #b30000;  /* texto vermelho quando selecionado */
+    color: #b30000; /* texto vermelho quando selecionado */
     font-weight: 600;
 }
-
 
 /* ========================= */
 /* Fracionamento - Accordion */
@@ -418,7 +409,7 @@ html, body {
 
 /* Quando expandido */
 .fracionamento-content.expanded {
-    max-height: 250px;  /* ajuste se precisar */
+    max-height: 250px; /* ajuste se precisar */
 }
 
 /* Estilo base dos sub-links */
@@ -443,13 +434,12 @@ html, body {
 /* Estado ativo dos sublinks de fracionamento */
 .fracionamento-subbutton-active {
     background: #ffffff;
-    color: #b30000;  /* vermelho do texto quando selecionado */
+    color: #b30000; /* vermelho do texto quando selecionado */
     font-weight: 600;
 }
 
-
 /* ========================= */
-/* Portarias - Accordion     */
+/* Portarias - Accordion */
 /* ========================= */
 
 .portarias-container {
