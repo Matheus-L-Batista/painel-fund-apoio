@@ -8,7 +8,6 @@ from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 
 # --------------------------------------------------
@@ -232,8 +231,7 @@ layout = html.Div(
                 ),
             ],
         ),
-
-        # Texto numa única linha com "Instrumentos de Cobrança" sublinhado
+        # Texto
         html.Div(
             style={
                 "marginTop": "15px",
@@ -268,7 +266,6 @@ layout = html.Div(
                 ),
             ],
         ),
-
         dash_table.DataTable(
             id="tabela_portarias",
             columns=[
@@ -338,7 +335,7 @@ layout = html.Div(
 )
 
 # --------------------------------------------------
-# Callback: aplicar filtros + link clicável
+# Callback: aplicar filtros + link clicável (máscara única)
 # --------------------------------------------------
 @dash.callback(
     Output("tabela_portarias", "data"),
@@ -350,45 +347,59 @@ layout = html.Div(
     Input("filtro_tipo", "value"),
 )
 def atualizar_tabela_portarias(
-    numero_ano_texto, setor_drop, servidor_texto, servidor_drop, tipo_sel
+    numero_ano_texto,
+    setor_drop,
+    servidor_texto,
+    servidor_drop,
+    tipo_sel,
 ):
+    """
+    Aplica todos os filtros em um único dataframe base (df_portarias_base),
+    usando máscara booleana combinada. A ordem dos filtros não importa.
+    """
     dff = df_portarias_base.copy()
 
-    tipos_validos = ["AGENTES DE COMPRAS", "CONTRATOS TIPO EMPENHO"]
-    dff = dff[dff["TIPO"].isin(tipos_validos)]
+    mask = pd.Series(True, index=dff.index)
 
+    # Tipo
     if tipo_sel and tipo_sel != "TODOS":
-        dff = dff[dff["TIPO"] == tipo_sel]
+        mask &= dff["TIPO"] == tipo_sel
 
+    # Nº/ANO da Portaria
     if numero_ano_texto and str(numero_ano_texto).strip():
         termo = str(numero_ano_texto).strip().lower()
-        dff = dff[
+        mask &= (
             dff["N°/ANO da Portaria"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
-        ]
+        )
 
+    # Setor
     if setor_drop:
-        dff = dff[dff["Setor de Origem"] == setor_drop]
+        mask &= dff["Setor de Origem"] == setor_drop
 
+    # Servidor texto
     if servidor_texto and str(servidor_texto).strip():
         termo = str(servidor_texto).strip().lower()
-        dff = dff[
+        mask &= (
             dff["Servidores"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
-        ]
+        )
 
+    # Servidor dropdown
     if servidor_drop:
         termo = str(servidor_drop).strip().lower()
-        dff = dff[
+        mask &= (
             dff["Servidores"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
-        ]
+        )
+
+    dff = dff[mask].copy()
 
     dff = dff[
         dff[NOME_COL_LINK_ORIGINAL]
@@ -418,6 +429,106 @@ def atualizar_tabela_portarias(
     ]
 
     return dff_display[cols_tabela].to_dict("records"), dff.to_dict("records")
+
+# --------------------------------------------------
+# Callback: filtros em cascata (ordem-invariante)
+# --------------------------------------------------
+@dash.callback(
+    Output("filtro_setor_dropdown", "options"),
+    Output("filtro_servidor_dropdown", "options"),
+    Output("filtro_tipo", "options"),
+    Input("filtro_numero_ano", "value"),
+    Input("filtro_setor_dropdown", "value"),
+    Input("filtro_servidor_texto", "value"),
+    Input("filtro_servidor_dropdown", "value"),
+    Input("filtro_tipo", "value"),
+)
+def atualizar_opcoes_filtros_portarias(
+    numero_ano_texto,
+    setor_drop,
+    servidor_texto,
+    servidor_drop,
+    tipo_sel,
+):
+    """
+    Atualiza as opções de Setor, Servidores (dropdown) e Tipo
+    em cascata, usando um único filtro global.
+    """
+    dff = df_portarias_base.copy()
+
+    mask = pd.Series(True, index=dff.index)
+
+    if tipo_sel and tipo_sel != "TODOS":
+        mask &= dff["TIPO"] == tipo_sel
+
+    if numero_ano_texto and str(numero_ano_texto).strip():
+        termo = str(numero_ano_texto).strip().lower()
+        mask &= (
+            dff["N°/ANO da Portaria"]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        )
+
+    if setor_drop:
+        mask &= dff["Setor de Origem"] == setor_drop
+
+    if servidor_texto and str(servidor_texto).strip():
+        termo = str(servidor_texto).strip().lower()
+        mask &= (
+            dff["Servidores"]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        )
+
+    if servidor_drop:
+        termo = str(servidor_drop).strip().lower()
+        mask &= (
+            dff["Servidores"]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        )
+
+    dff = dff[mask].copy()
+
+    # Opções de Setor
+    op_setor = [
+        {"label": s, "value": s}
+        for s in sorted(dff["Setor de Origem"].dropna().unique())
+        if str(s).strip() != ""
+    ]
+
+    # Opções de servidores (explodindo colunas 1..15 se existirem)
+    cols_serv = [str(i) for i in range(1, 16) if str(i) in dff.columns]
+    if cols_serv:
+        todos_serv = pd.Series(dff[cols_serv].values.ravel("K"), dtype="object")
+        servidores_unicos_filtrados = sorted(
+            [
+                s
+                for s in todos_serv.unique()
+                if isinstance(s, str) and s.strip() != ""
+            ]
+        )
+    else:
+        servidores_unicos_filtrados = []
+
+    op_servidor = [
+        {"label": s, "value": s}
+        for s in servidores_unicos_filtrados
+    ]
+
+    # Opções de Tipo, mantendo "TODOS"
+    tipos_presentes = sorted(
+        [t for t in dff["TIPO"].dropna().unique() if str(t).strip() != ""]
+    )
+    op_tipo = [{"label": "Todos", "value": "TODOS"}]
+
+    for t in tipos_presentes:
+        op_tipo.append({"label": t, "value": t})
+
+    return op_setor, op_servidor, op_tipo
 
 # --------------------------------------------------
 # Callback: limpar filtros
@@ -479,7 +590,7 @@ def gerar_pdf_port(n, dados_port):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data e hora (topo direito)
+    # Data e hora
     tz_brasilia = timezone("America/Sao_Paulo")
     data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
 
@@ -593,7 +704,7 @@ def gerar_pdf_port(n, dados_port):
     story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
     story.append(Spacer(1, 0.1 * inch))
 
-    # Colunas da tabela (sem Link)
+    # Colunas
     cols = [
         "Data",
         "N°/ANO da Portaria",
@@ -604,21 +715,19 @@ def gerar_pdf_port(n, dados_port):
 
     df_pdf = df.copy()
 
-    # Monta tabela
     header = cols
     table_data = [header]
     for _, row in df_pdf[cols].iterrows():
         table_data.append([wrap(row[c]) for c in cols])
 
     page_width = pagesize[0] - 0.6 * inch
-    
-    # Larguras proporcionais das colunas
+
     col_widths = [
         0.8 * inch,        # Data
         0.9 * inch,        # N°/ANO da Portaria
         1.0 * inch,        # Setor de Origem
         1.2 * inch,        # TIPO
-        page_width - (0.8 + 0.9 + 1.0 + 1.2) * inch,  # Servidores (resto)
+        page_width - (0.8 + 0.9 + 1.0 + 1.2) * inch,  # Servidores
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -637,7 +746,6 @@ def gerar_pdf_port(n, dados_port):
         ("RIGHTPADDING", (0, 0), (-1, -1), 3),
     ]
 
-    # Servidores alinhada à esquerda (coluna 4)
     for row_idx in range(len(table_data)):
         table_styles.append(
             ("ALIGN", (4, row_idx), (4, row_idx), "LEFT")

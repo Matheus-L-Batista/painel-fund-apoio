@@ -397,7 +397,7 @@ html, body {
 
 /* Quando expandido */
 .fracionamento-content.expanded {
-    max-height: 200px;  /* ajuste se precisar */
+    max-height: 250px;  /* ajuste se precisar */
 }
 
 /* Estilo base dos sub-links */

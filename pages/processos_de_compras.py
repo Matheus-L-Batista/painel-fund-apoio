@@ -1,9 +1,12 @@
+#1. Importações, registro da página e constantes
+
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
 from dash.exceptions import PreventUpdate
 
 import pandas as pd
 from io import BytesIO
+
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import (
@@ -17,9 +20,11 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from reportlab.lib import colors
+
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
 from datetime import datetime
 from pytz import timezone
 import os
@@ -34,16 +39,25 @@ dash.register_page(
     title="Processos de Compras",
 )
 
+# URL da planilha de Processos de Compras (BI Itajubá)
 URL_PROCESSOS = (
     "https://docs.google.com/spreadsheets/d/"
     "1YNg6WRww19Gf79ISjQtb8tkzjX2lscHirnR_F3wGjog/"
     "gviz/tq?tqx=out:csv&sheet=BI%20-%20Itajub%C3%A1"
 )
 
+#2. Carga de dados e utilitários
+
 # ----------------------------------------
 # Carga e tratamento dos dados
 # ----------------------------------------
 def carregar_dados_processos():
+    """
+    Lê a planilha de processos de compras e faz:
+    - garantia de existência de colunas esperadas
+    - conversão de campos monetários para float
+    - conversão de datas e criação da coluna de mês de finalização (texto)
+    """
     df = pd.read_csv(URL_PROCESSOS)
     df.columns = [c.strip() for c in df.columns]
 
@@ -63,6 +77,7 @@ def carregar_dados_processos():
         "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº (com pontos e traços)"
     )
 
+    # Garante todas as colunas presentes, mesmo se a planilha mudar
     for c in [
         col_solicitante,
         col_num_proc,
@@ -82,6 +97,10 @@ def carregar_dados_processos():
             df[c] = ""
 
     def conv_moeda(v):
+        """
+        Converte string no formato brasileiro de moeda
+        (R$, pontos de milhar, vírgula decimal) em float.
+        """
         if isinstance(v, str):
             v = (
                 v.replace("R$", "")
@@ -95,10 +114,12 @@ def carregar_dados_processos():
     df[col_preco_estimado] = df[col_preco_estimado].apply(conv_moeda)
     df[col_valor_contratado] = df[col_valor_contratado].apply(conv_moeda)
 
+    # Converte a data de finalização para datetime
     df["Data finalização"] = pd.to_datetime(
         df["Data finalização"], format="%d/%m/%Y", errors="coerce"
     )
 
+    # Mapeamento numérico -> mês por extenso (minúsculo)
     meses_map = {
         1: "janeiro",
         2: "fevereiro",
@@ -118,6 +139,7 @@ def carregar_dados_processos():
 
     return df
 
+
 df_proc_base = carregar_dados_processos()
 ANO_ATUAL = datetime.now().year
 
@@ -128,13 +150,47 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
+
 def formatar_moeda(v):
+    """
+    Formata float em moeda brasileira com prefixo R$.
+    """
     return (
         f"R$ {v:,.2f}"
         .replace(",", "X")
         .replace(".", ",")
         .replace("X", ".")
     )
+
+
+# Lista fixa de meses em ordem cronológica
+MESES_ORDENADOS = [
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
+]
+
+# Gera opções de mês respeitando a ordem janeiro-dezembro,
+# mas apenas para os meses que existem na base
+meses_disponiveis = (
+    df_proc_base["Mes_finalizacao"].dropna().unique().tolist()
+)
+options_mes_finalizacao = [
+    {"label": m.capitalize(), "value": m}
+    for m in MESES_ORDENADOS
+    if m in meses_disponiveis
+]
+
+#3. Layout da página
 
 # ----------------------------------------
 # Layout
@@ -155,6 +211,7 @@ layout = html.Div(
                         "alignItems": "flex-start",
                     },
                     children=[
+                        # Filtro: Número do Processo (texto livre)
                         html.Div(
                             style={"minWidth": "200px", "flex": "1 1 240px"},
                             children=[
@@ -170,6 +227,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Filtro: Ano (sempre obrigatório, default = ano corrente)
                         html.Div(
                             style={"minWidth": "120px", "flex": "0 0 140px"},
                             children=[
@@ -191,23 +249,14 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Filtro: Mês de Finalização (com ordem janeiro-dezembro)
                         html.Div(
                             style={"minWidth": "150px", "flex": "0 0 170px"},
                             children=[
                                 html.Label("Mês de Finalização"),
                                 dcc.Dropdown(
                                     id="filtro_mes_finalizacao",
-                                    options=[
-                                        {
-                                            "label": m.capitalize(),
-                                            "value": m,
-                                        }
-                                        for m in sorted(
-                                            df_proc_base["Mes_finalizacao"]
-                                            .dropna()
-                                            .unique()
-                                        )
-                                    ],
+                                    options=options_mes_finalizacao,
                                     value=None,
                                     placeholder="Todos",
                                     clearable=True,
@@ -215,6 +264,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Filtro: Solicitante
                         html.Div(
                             style={"minWidth": "200px", "flex": "1 1 240px"},
                             children=[
@@ -237,6 +287,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Filtro: Objeto
                         html.Div(
                             style={"minWidth": "260px", "flex": "2 1 320px"},
                             children=[
@@ -271,6 +322,7 @@ layout = html.Div(
                         "marginTop": "4px",
                     },
                     children=[
+                        # Filtro: Modalidade
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -293,6 +345,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Filtro: Status
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -315,6 +368,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Filtro: Classificação (Não Concluídos)
                         html.Div(
                             style={"minWidth": "260px", "flex": "2 1 320px"},
                             children=[
@@ -363,7 +417,7 @@ layout = html.Div(
                 ),
             ],
         ),
-        # Conteúdo
+        # Conteúdo principal
         html.Div(
             children=[
                 html.Div(
@@ -406,7 +460,10 @@ layout = html.Div(
                         {"name": "Valor Contratado", "id": "Valor Contratado_FMT"},
                         {"name": "Status", "id": "Status"},
                         {"name": "Data De Entrada", "id": "Data de Entrada"},
-                        {"name": "Data Finalização", "id": "Data finalização_FMT"},
+                        {
+                            "name": "Data Finalização",
+                            "id": "Data finalização_FMT",
+                        },
                         {
                             "name": "Classificação (Não Concluídos)",
                             "id": "Classificação dos processos não concluídos",
@@ -443,11 +500,15 @@ layout = html.Div(
                         "zIndex": 10,
                     },
                 ),
+                # Store com os dados filtrados (base para PDF)
                 dcc.Store(id="store_dados_proc"),
             ],
         ),
-    ],
+    ]
 )
+
+#4. Callback: tabela, cards e gráficos
+
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
 # ----------------------------------------
@@ -477,45 +538,47 @@ def atualizar_tabela_proc(
     classif_nc,
 ):
     # -------------------------
-    # Filtros principais (inclui ano)
+    # Filtro principal (ordem dos filtros não importa)
     # -------------------------
     dff = df_proc_base.copy()
 
+    mask = pd.Series(True, index=dff.index)
+
+    # Filtro por número de processo (texto parcial)
     if num_proc and str(num_proc).strip():
         termo = str(num_proc).strip()
-        dff = dff[
+        mask &= (
             dff["Numero do Processo"]
             .astype(str)
             .str.contains(termo, case=False, na=False)
-        ]
+        )
 
+    # Ano (sempre aplicado se não nulo)
     if ano:
-        dff = dff[dff["Ano"] == ano]
+        mask &= dff["Ano"] == ano
 
     if mes_finalizacao:
-        dff = dff[dff["Mes_finalizacao"] == mes_finalizacao]
-
+        mask &= dff["Mes_finalizacao"] == mes_finalizacao
     if solicitante:
-        dff = dff[dff["Solicitante"] == solicitante]
-
+        mask &= dff["Solicitante"] == solicitante
     if objeto:
-        dff = dff[dff["Objeto"] == objeto]
-
+        mask &= dff["Objeto"] == objeto
     if modalidade:
-        dff = dff[dff["Modalidade"] == modalidade]
-
+        mask &= dff["Modalidade"] == modalidade
     if status:
-        dff = dff[dff["Status"] == status]
-
+        mask &= dff["Status"] == status
     if classif_nc:
-        dff = dff[
+        mask &= (
             dff["Classificação dos processos não concluídos"] == classif_nc
-        ]
+        )
+
+    dff = dff[mask]
 
     # -------------------------
     # Formatação da tabela
     # -------------------------
     dff_display = dff.copy()
+
     dff_display["PREÇO ESTIMADO_FMT"] = dff_display["PREÇO ESTIMADO"].apply(
         formatar_moeda
     )
@@ -523,13 +586,17 @@ def atualizar_tabela_proc(
         formatar_moeda
     )
 
+    # Data de Entrada: converter string -> datetime -> string formatada
     dff_display["Data de Entrada"] = pd.to_datetime(
         dff_display["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     ).dt.strftime("%d/%m/%Y")
-    dff_display["Data finalização_FMT"] = dff_display["Data finalização"].dt.strftime(
-        "%d/%m/%Y"
-    )
 
+    # Data finalização (já em datetime), criar campo formatado
+    dff_display["Data finalização_FMT"] = dff_display[
+        "Data finalização"
+    ].dt.strftime("%d/%m/%Y")
+
+    # Campo auxiliar para ordenação
     dff_display["Data_Entrada_dt"] = pd.to_datetime(
         dff_display["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     )
@@ -544,11 +611,13 @@ def atualizar_tabela_proc(
     # -------------------------
     total_valor_contratado = dff["Valor Contratado"].sum()
     qtd_processos = len(dff)
+
+    # Ajuste: se quiser média só dos concluídos, trocar divisor para qtd_concluidos
+    concluidos = (dff["Status"] == "Concluído").sum()
     media_por_processo = (
-        total_valor_contratado / qtd_processos if qtd_processos > 0 else 0.0
+        total_valor_contratado / concluidos if concluidos > 0 else 0.0
     )
 
-    concluidos = (dff["Status"] == "Concluído").sum()
     em_andamento = (dff["Status"] == "Em Andamento").sum()
     nao_concluidos = (dff["Status"] == "Não Concluído").sum()
 
@@ -580,7 +649,9 @@ def atualizar_tabela_proc(
                     formatar_moeda(media_por_processo),
                     style={"color": "#003A70", "margin": "0", "fontSize": "20px"},
                 ),
-                html.Div("Média por Processo Concluído", style={"fontSize": "15px"}),
+                html.Div(
+                    "Média por Processo Concluído", style={"fontSize": "15px"}
+                ),
             ],
         ),
         html.Div(
@@ -618,12 +689,13 @@ def atualizar_tabela_proc(
     ]
 
     # -------------------------
-    # Gráfico de status + gráfico anual
+    # Gráfico de status (pizza) + gráfico anual
     # -------------------------
     if dff.empty:
         fig_status = px.pie(title="Porcentagem de Status")
         fig_valor_mes = px.bar(title="Processos Concluídos por Ano")
     else:
+        # Gráfico de status (pizza)
         grp_status = (
             dff.groupby("Status", as_index=False)["Numero do Processo"]
             .count()
@@ -637,7 +709,6 @@ def atualizar_tabela_proc(
             hole=0.6,
             title="Porcentagem de Status",
         )
-
         fig_status.update_traces(
             marker=dict(
                 colors=["#003A70", "#DA291C", "#A2AAAD"],
@@ -646,7 +717,6 @@ def atualizar_tabela_proc(
             textposition="outside",
             texttemplate="%{label} %{value} (%{percent:.2%})",
         )
-
         fig_status.update_layout(
             title_x=0.5,
             plot_bgcolor="#FFFFFF",
@@ -657,38 +727,36 @@ def atualizar_tabela_proc(
         # --- gráfico anual usa filtros exceto ano ---
         dff_global = df_proc_base.copy()
 
+        mask_global = pd.Series(True, index=dff_global.index)
+
         if num_proc and str(num_proc).strip():
             termo = str(num_proc).strip()
-            dff_global = dff_global[
+            mask_global &= (
                 dff_global["Numero do Processo"]
                 .astype(str)
                 .str.contains(termo, case=False, na=False)
-            ]
-
+            )
         if mes_finalizacao:
-            dff_global = dff_global[
-                dff_global["Mes_finalizacao"] == mes_finalizacao
-            ]
-
+            mask_global &= dff_global["Mes_finalizacao"] == mes_finalizacao
         if solicitante:
-            dff_global = dff_global[dff_global["Solicitante"] == solicitante]
-
+            mask_global &= dff_global["Solicitante"] == solicitante
         if objeto:
-            dff_global = dff_global[dff_global["Objeto"] == objeto]
-
+            mask_global &= dff_global["Objeto"] == objeto
         if modalidade:
-            dff_global = dff_global[dff_global["Modalidade"] == modalidade]
-
+            mask_global &= dff_global["Modalidade"] == modalidade
         if status:
-            dff_global = dff_global[dff_global["Status"] == status]
-
+            mask_global &= dff_global["Status"] == status
         if classif_nc:
-            dff_global = dff_global[
+            mask_global &= (
                 dff_global["Classificação dos processos não concluídos"]
                 == classif_nc
-            ]
+            )
 
-        dff_conc_global = dff_global[dff_global["Status"] == "Concluído"].copy()
+        dff_global = dff_global[mask_global]
+
+        dff_conc_global = dff_global[
+            dff_global["Status"] == "Concluído"
+        ].copy()
 
         if dff_conc_global.empty:
             fig_valor_mes = px.bar(title="Processos Concluídos por Ano")
@@ -700,7 +768,6 @@ def atualizar_tabela_proc(
                     Qtd_Processos=("Numero do Processo", "count"),
                 )
             )
-
             grp_ano["Media_Por_Processo"] = (
                 grp_ano["Valor_Contratado_Total"] / grp_ano["Qtd_Processos"]
             )
@@ -713,11 +780,10 @@ def atualizar_tabela_proc(
             ].apply(formatar_moeda)
 
             hovertemplate_ano = (
-                "<b>Ano:</b> %{x}<br>"
-                + "<b>Valor Contratado Total:</b> %{customdata[0]}<br>"
-                + "<b>Média por Processo:</b> %{customdata[1]}<br>"
-                + "<b>Número de Processos Concluídos:</b> %{customdata[2]}"
-                + "<extra></extra>"
+                "Ano: %{x}<br>"
+                + "Valor Contratado Total: %{customdata[0]}<br>"
+                + "Média por Processo: %{customdata[1]}<br>"
+                + "Número de Processos Concluídos: %{customdata[2]}<extra></extra>"
             )
 
             customdata = grp_ano[
@@ -814,8 +880,11 @@ def atualizar_tabela_proc(
         fig_status,
         fig_valor_mes,
     )
+
+#5. Filtros em cascata, limpar filtros e PDF
+
 # ----------------------------------------
-# Callback: filtros em cascata
+# Callback: filtros em cascata (ordem-invariante)
 # ----------------------------------------
 @dash.callback(
     Output("filtro_solicitante_proc", "options"),
@@ -840,24 +909,32 @@ def atualizar_opcoes_filtros(
     status,
     classif_nc,
 ):
+    """
+    Gera opções de dropdown em cascata a partir de um único filtro global.
+    A ordem de seleção dos filtros não importa.
+    """
     dff = df_proc_base.copy()
 
+    mask = pd.Series(True, index=dff.index)
+
     if ano:
-        dff = dff[dff["Ano"] == ano]
+        mask &= dff["Ano"] == ano
     if mes_finalizacao:
-        dff = dff[dff["Mes_finalizacao"] == mes_finalizacao]
+        mask &= dff["Mes_finalizacao"] == mes_finalizacao
     if solicitante:
-        dff = dff[dff["Solicitante"] == solicitante]
+        mask &= dff["Solicitante"] == solicitante
     if objeto:
-        dff = dff[dff["Objeto"] == objeto]
+        mask &= dff["Objeto"] == objeto
     if modalidade:
-        dff = dff[dff["Modalidade"] == modalidade]
+        mask &= dff["Modalidade"] == modalidade
     if status:
-        dff = dff[dff["Status"] == status]
+        mask &= dff["Status"] == status
     if classif_nc:
-        dff = dff[
+        mask &= (
             dff["Classificação dos processos não concluídos"] == classif_nc
-        ]
+        )
+
+    dff = dff[mask]
 
     op_solicitante = [
         {"label": s, "value": s}
@@ -888,8 +965,10 @@ def atualizar_opcoes_filtros(
     ]
 
     return op_solicitante, op_objeto, op_modalidade, op_status, op_classif
+
+
 # ----------------------------------------
-# Callback: limpar filtros
+# Callback: limpar filtros (volta sempre para ano atual)
 # ----------------------------------------
 @dash.callback(
     Output("filtro_num_proc", "value"),
@@ -904,28 +983,29 @@ def atualizar_opcoes_filtros(
     prevent_initial_call=True,
 )
 def limpar_filtros_proc(n):
+    """
+    Limpa todos os filtros e retorna o ano para ANO_ATUAL.
+    """
     return None, ANO_ATUAL, None, None, None, None, None, None
 
+#Funções auxiliares de PDF e callback do relatório
 
 # ========================================
 # FUNÇÕES PARA CARDS NO PDF - COMPRAS
 # ========================================
 def criar_card_elemento(titulo, valor, cor):
     """
-    Cria um elemento de card para PDF
-
+    Cria um elemento de card para PDF.
     Args:
         titulo: Título do card
-        valor: Valor a exibir
-        cor: Cor hexadecimal para o valor
-
-    Returns:
-        Uma Table com o card formatado
+        valor: Valor a exibir (já formatado)
+        cor: Cor hexadecimal para o valor (não aplicada diretamente aqui,
+             pode ser customizada depois no ParagraphStyle)
     """
     card_content = [
         [
             Paragraph(
-                f"<font size=11 color='{cor}'><b>{valor}</b></font>",
+                f"{valor}",
                 ParagraphStyle(
                     "card_valor",
                     alignment=TA_CENTER,
@@ -935,7 +1015,7 @@ def criar_card_elemento(titulo, valor, cor):
         ],
         [
             Paragraph(
-                f"<font size=8>{titulo}</font>",
+                f"{titulo}",
                 ParagraphStyle(
                     "card_titulo",
                     alignment=TA_CENTER,
@@ -946,11 +1026,7 @@ def criar_card_elemento(titulo, valor, cor):
         ],
     ]
 
-    card_table = Table(
-        card_content,
-        colWidths=[1.5 * inch],
-    )
-
+    card_table = Table(card_content, colWidths=[1.5 * inch])
     card_table.setStyle(
         TableStyle(
             [
@@ -965,18 +1041,15 @@ def criar_card_elemento(titulo, valor, cor):
             ]
         )
     )
-
     return card_table
 
 
 def criar_cards_resumo_pdf(story, df, pagesize):
     """
-    Cria cards de resumo no PDF com os mesmos dados dos cards HTML
-    Todos os 6 cards em uma única linha
-    df aqui DEVE ser o dataframe numérico (sem formatar moeda)
+    Cria cards de resumo no PDF com os mesmos dados dos cards HTML.
+    Todos os 6 cards em uma única linha.
+    df aqui DEVE ser o dataframe numérico (sem formatar moeda).
     """
-
-    # garante que é numérico caso venha como texto
     df_num = df.copy()
     df_num["Valor Contratado"] = pd.to_numeric(
         df_num["Valor Contratado"], errors="coerce"
@@ -992,7 +1065,7 @@ def criar_cards_resumo_pdf(story, df, pagesize):
     em_andamento = (df_num["Status"] == "Em Andamento").sum()
     nao_concluidos = (df_num["Status"] == "Não Concluído").sum()
 
-    # Adicionar título dos cards
+    # Título dos cards
     story.append(
         Paragraph(
             "RESUMO EXECUTIVO",
@@ -1009,7 +1082,6 @@ def criar_cards_resumo_pdf(story, df, pagesize):
     )
     story.append(Spacer(1, 0.08 * inch))
 
-    # Criar tabela com 6 colunas x 1 linha de cards (todos na mesma linha)
     card_data = [
         [
             criar_card_elemento(
@@ -1045,9 +1117,7 @@ def criar_cards_resumo_pdf(story, df, pagesize):
         ]
     ]
 
-    # Largura de cada card: divide a largura disponível por 6
     card_width = (pagesize[0] - 0.3 * inch) / 6 - 0.05 * inch
-
     cards_table = Table(
         card_data,
         colWidths=[
@@ -1059,7 +1129,6 @@ def criar_cards_resumo_pdf(story, df, pagesize):
             card_width,
         ],
     )
-
     cards_table.setStyle(
         TableStyle(
             [
@@ -1121,12 +1190,7 @@ def header_pdf_compras(text):
 # --------------------------------------------------
 def criar_tabela_dados_compras(story, df, pagesize):
     """
-    Cria tabela de dados de compras com cabeçalho azul e texto branco
-
-    Args:
-        story: Lista de elementos do PDF
-        df: DataFrame com dados formatados
-        pagesize: Tamanho da página (landscape)
+    Cria tabela de dados de compras com cabeçalho azul e texto branco.
     """
     if df.empty:
         return
@@ -1146,8 +1210,8 @@ def criar_tabela_dados_compras(story, df, pagesize):
         "Classificação dos processos não concluídos",
         "CONTRATAÇÃO REINSTRUÍDA PELO PROCESSO Nº",
     ]
-    cols = [c for c in cols if c in df.columns]
 
+    cols = [c for c in cols if c in df.columns]
     df_pdf = df.copy()
 
     header = [header_pdf_compras(c) for c in cols]
@@ -1179,7 +1243,6 @@ def criar_tabela_dados_compras(story, df, pagesize):
     col_widths = col_widths[: len(cols)]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
-
     style_list = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -1207,7 +1270,6 @@ def criar_tabela_dados_compras(story, df, pagesize):
     ]
 
     tbl.setStyle(TableStyle(style_list))
-
     story.append(tbl)
 
 
@@ -1221,21 +1283,25 @@ def criar_tabela_dados_compras(story, df, pagesize):
     prevent_initial_call=True,
 )
 def gerar_pdf_proc(n, dados_proc):
+    """
+    Gera o relatório em PDF com base nos dados filtrados atualmente na tabela.
+    """
     if not n or not dados_proc:
         return None
 
     df = pd.DataFrame(dados_proc)
 
-    # Preparar dataframe para os cards (valores numéricos)
+    # Dataframe numérico para os cards
     df_cards = df.copy()
     df_cards["Valor Contratado"] = pd.to_numeric(
         df_cards["Valor Contratado"], errors="coerce"
     ).fillna(0)
 
-    # Preparar dataframe para a tabela (valores formatados)
+    # Dataframe para a tabela do PDF (valores já formatados)
     df_pdf = df.copy()
     df_pdf["PREÇO ESTIMADO"] = df_pdf["PREÇO ESTIMADO"].apply(formatar_moeda)
     df_pdf["Valor Contratado"] = df_pdf["Valor Contratado"].apply(formatar_moeda)
+
     df_pdf["Data de Entrada"] = pd.to_datetime(
         df_pdf["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     ).dt.strftime("%d/%m/%Y")
@@ -1245,6 +1311,7 @@ def gerar_pdf_proc(n, dados_proc):
 
     buffer = BytesIO()
     pagesize = landscape(A4)
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
@@ -1257,9 +1324,10 @@ def gerar_pdf_proc(n, dados_proc):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data e hora no topo
+    # Data e hora no topo (fuso de Brasília)
     tz_brasilia = timezone("America/Sao_Paulo")
     data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+
     data_top_table = Table(
         [
             [
@@ -1276,7 +1344,6 @@ def gerar_pdf_proc(n, dados_proc):
         ],
         colWidths=[pagesize[0] - 0.3 * inch],
     )
-
     data_top_table.setStyle(
         TableStyle(
             [
@@ -1285,7 +1352,6 @@ def gerar_pdf_proc(n, dados_proc):
             ]
         )
     )
-
     story.append(data_top_table)
     story.append(Spacer(1, 0.1 * inch))
 
@@ -1326,7 +1392,6 @@ def gerar_pdf_proc(n, dados_proc):
                     ]
                 )
             )
-
             story.append(logo_table)
             story.append(Spacer(1, 0.15 * inch))
 
@@ -1343,12 +1408,10 @@ def gerar_pdf_proc(n, dados_proc):
             leading=14,
         ),
     )
-
     titulo_table = Table(
         [[titulo_paragraph]],
         colWidths=[pagesize[0] - 0.3 * inch],
     )
-
     titulo_table.setStyle(
         TableStyle(
             [
@@ -1357,11 +1420,10 @@ def gerar_pdf_proc(n, dados_proc):
             ]
         )
     )
-
     story.append(titulo_table)
     story.append(Spacer(1, 0.15 * inch))
 
-    # Cards de resumo - TODOS OS 6 NA MESMA LINHA
+    # Cards de resumo (6 na mesma linha)
     criar_cards_resumo_pdf(story, df_cards, pagesize)
 
     # Total de registros
@@ -1377,7 +1439,6 @@ def gerar_pdf_proc(n, dados_proc):
     criar_tabela_dados_compras(story, df_pdf, pagesize)
 
     doc.build(story)
-
     buffer.seek(0)
 
     return dcc.send_bytes(

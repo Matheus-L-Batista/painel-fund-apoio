@@ -1,8 +1,9 @@
 import dash
 from dash import html, dcc, dash_table, Input, Output, State
-import pandas as pd
 
+import pandas as pd
 from io import BytesIO
+
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import (
@@ -16,6 +17,7 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from reportlab.lib import colors
+
 from datetime import datetime
 from pytz import timezone
 import os
@@ -43,6 +45,13 @@ URL_CONSULTA_BI = (
 # Carga e tratamento: empilha Data Mov, Data Mov.1, ...
 # --------------------------------------------------
 def carregar_dados_status():
+    """
+    Lê a planilha de Consulta BI e:
+    - garante colunas fixas
+    - empilha colunas Data Mov / E/S / Deptº / Ação em um único bloco
+    - remove linhas totalmente vazias
+    - converte tipos básicos (datas, numéricos)
+    """
     df = pd.read_csv(URL_CONSULTA_BI, header=0)
     df.columns = [c.strip() for c in df.columns]
 
@@ -58,6 +67,7 @@ def carregar_dados_status():
         "Não concluído",
         "Entrada na DCC",
     ]
+
     for c in col_fixas:
         if c not in df.columns:
             df[c] = None
@@ -69,13 +79,16 @@ def carregar_dados_status():
         if c not in df.columns:
             df[c] = None
 
+    # Identifica todas as colunas de Data Mov (Data Mov, Data Mov.1, ...)
     data_cols = [c for c in df.columns if c.startswith("Data Mov")]
 
     grupos = []
 
+    # Bloco base (Data Mov "principal")
     grupo0 = df[col_fixas + ["Data Mov", "E/S", "Deptº", "Ação"]].copy()
     grupos.append(grupo0)
 
+    # Demais blocos Data MovX / E/SX / DeptºX / AçãoX
     for col in data_cols:
         if col == "Data Mov":
             continue
@@ -103,12 +116,14 @@ def carregar_dados_status():
 
     tabela_unida = pd.concat(grupos, ignore_index=True)
 
+    # Remove linhas totalmente vazias
     t_aux = tabela_unida.replace({None: pd.NA}).fillna("")
     mask_nao_vazia = t_aux.apply(
         lambda row: any(v not in ("", None) for v in row.values), axis=1
     )
     tabela_unida = tabela_unida[mask_nao_vazia].copy()
 
+    # Ajustes de tipos
     tabela_unida["Linha"] = tabela_unida["Linha"].astype(str)
 
     for col in [
@@ -141,6 +156,7 @@ def carregar_dados_status():
 
     return tabela_unida
 
+
 df_status = carregar_dados_status()
 
 dropdown_style = {
@@ -150,9 +166,12 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
+# Opções de processo (seleção) ordenadas pela linha mais recente (base global)
 df_proc_opts = df_status[["Processo", "Linha"]].copy()
 df_proc_opts = df_proc_opts.dropna(subset=["Processo"])
-df_proc_opts["Linha_num"] = pd.to_numeric(df_proc_opts["Linha"], errors="coerce")
+df_proc_opts["Linha_num"] = pd.to_numeric(
+    df_proc_opts["Linha"], errors="coerce"
+)
 df_proc_opts = df_proc_opts.sort_values("Linha_num", ascending=False)
 df_proc_opts = df_proc_opts.drop_duplicates(subset=["Processo"], keep="first")
 
@@ -166,6 +185,7 @@ processo_options = [
 # --------------------------------------------------
 layout = html.Div(
     children=[
+        # Barra de filtros
         html.Div(
             id="barra_filtros_status",
             className="filtros-sticky",
@@ -178,6 +198,7 @@ layout = html.Div(
                         "alignItems": "flex-start",
                     },
                     children=[
+                        # Processo por digitação (contains)
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -193,6 +214,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Processo por seleção (dropdown)
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -207,6 +229,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Requisitante
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -229,7 +252,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                        # Objeto por DIGITAÇÃO
+                        # Objeto por digitação (contains)
                         html.Div(
                             style={"minWidth": "260px", "flex": "2 1 320px"},
                             children=[
@@ -245,6 +268,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Modalidade
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -269,6 +293,7 @@ layout = html.Div(
                         ),
                     ],
                 ),
+                # Botões
                 html.Div(
                     style={"marginTop": "4px"},
                     children=[
@@ -290,6 +315,7 @@ layout = html.Div(
                 ),
             ],
         ),
+        # Tabelas esquerda / direita
         html.Div(
             style={
                 "display": "flex",
@@ -306,9 +332,15 @@ layout = html.Div(
                             id="tabela_status_esquerda",
                             columns=[
                                 {"name": "Processo", "id": "Processo"},
-                                {"name": "Requisitante", "id": "Requisitante"},
+                                {
+                                    "name": "Requisitante",
+                                    "id": "Requisitante",
+                                },
                                 {"name": "Objeto", "id": "Objeto"},
-                                {"name": "Modalidade", "id": "Modalidade"},
+                                {
+                                    "name": "Modalidade",
+                                    "id": "Modalidade",
+                                },
                                 {"name": "Linha", "id": "Linha"},
                             ],
                             data=[],
@@ -354,14 +386,23 @@ layout = html.Div(
                                 "whiteSpace": "normal",
                             },
                             style_cell_conditional=[
-                                {"if": {"column_id": "Data Mov"}, "width": "15%"},
-                                {"if": {"column_id": "E/S"}, "width": "15%"},
+                                {
+                                    "if": {"column_id": "Data Mov"},
+                                    "width": "15%",
+                                },
+                                {
+                                    "if": {"column_id": "E/S"},
+                                    "width": "15%",
+                                },
                                 {
                                     "if": {"column_id": "Ação"},
                                     "width": "50%",
                                     "textAlign": "center",
                                 },
-                                {"if": {"column_id": "Deptº"}, "width": "20%"},
+                                {
+                                    "if": {"column_id": "Deptº"},
+                                    "width": "20%",
+                                },
                             ],
                             style_header={
                                 "fontWeight": "bold",
@@ -375,19 +416,20 @@ layout = html.Div(
                                     "backgroundColor": "#ff9800",
                                     "fontWeight": "bold",
                                     "color": "white",
-                                }
+                                },
                             ],
                         ),
                     ],
                 ),
             ],
         ),
+        # Store para dados filtrados (PDF)
         dcc.Store(id="store_dados_status"),
     ]
 )
 
 # --------------------------------------------------
-# Callbacks principais
+# Callback principal: tabelas (filtro ordem-invariante)
 # --------------------------------------------------
 @dash.callback(
     Output("tabela_status_esquerda", "data"),
@@ -406,36 +448,60 @@ def atualizar_tabelas(
     objeto,
     modalidade,
 ):
+    """
+    Aplica todos os filtros em um único dataframe base (df_status),
+    usando uma máscara booleana combinada. A ordem em que o usuário
+    seleciona os filtros não importa.
+    """
     dff = df_status.copy()
 
+    # Máscara global
+    mask = pd.Series(True, index=dff.index)
+
+    # Processo por digitação (contains, case-insensitive)
     if proc_texto and str(proc_texto).strip():
         termo = str(proc_texto).strip()
-        dff = dff[
-            dff["Processo"].astype(str).str.contains(termo, case=False, na=False)
-        ]
+        mask &= (
+            dff["Processo"]
+            .astype(str)
+            .str.contains(termo, case=False, na=False)
+        )
 
+    # Processo por seleção (igualdade exata)
     if proc_select:
-        dff = dff[dff["Processo"] == proc_select]
+        mask &= dff["Processo"] == proc_select
 
+    # Requisitante (igualdade exata)
     if requisitante:
-        dff = dff[dff["Requisitante"] == requisitante]
+        mask &= dff["Requisitante"] == requisitante
 
-    # Objeto por digitação com contains
+    # Objeto por digitação (contains, case-insensitive)
     if objeto and str(objeto).strip():
         termo_obj = str(objeto).strip()
-        dff = dff[
-            dff["Objeto"].astype(str).str.contains(termo_obj, case=False, na=False)
-        ]
+        mask &= (
+            dff["Objeto"]
+            .astype(str)
+            .str.contains(termo_obj, case=False, na=False)
+        )
 
+    # Modalidade (igualdade exata)
     if modalidade:
-        dff = dff[dff["Modalidade"] == modalidade]
+        mask &= dff["Modalidade"] == modalidade
 
+    # Aplica todos os filtros de uma vez
+    dff = dff[mask].copy()
+
+    # Ordena por Linha (numérica, se possível)
     try:
-        dff["Linha_ordenacao"] = pd.to_numeric(dff["Linha"], errors="coerce")
+        dff["Linha_ordenacao"] = pd.to_numeric(
+            dff["Linha"], errors="coerce"
+        )
     except Exception:
         dff["Linha_ordenacao"] = dff["Linha"]
+
     dff = dff.sort_values("Linha_ordenacao", ascending=False)
 
+    # Tabela esquerda: dados do processo (uma linha por processo)
     mask_proc_valido = dff["Processo"].astype(str).str.strip().ne("")
     dff_esq = dff[mask_proc_valido].copy()
     dff_esq = dff_esq.drop_duplicates(subset=["Processo"], keep="first")
@@ -444,7 +510,7 @@ def atualizar_tabelas(
         ["Processo", "Requisitante", "Objeto", "Modalidade", "Linha"]
     ].to_dict("records")
 
-    # --------- tabela direita (removendo vazios e <NA>) ----------
+    # Tabela direita: movimentações (limpando linhas vazias / inválidas)
     dff_dir = dff.copy()
 
     for c in ["Data Mov", "E/S", "Ação", "Deptº"]:
@@ -454,12 +520,14 @@ def atualizar_tabelas(
         dff_dir["Ação"].ne("")
         & dff_dir["Ação"].str.lower().ne("none")
         & dff_dir["Ação"].str.lower().ne("nan")
-        & dff_dir["Ação"].str.lower().ne("<na>")
     )
     dff_dir = dff_dir[mask_acao_valida].copy()
 
-    dff_dir["Data Mov_dt"] = pd.to_datetime(dff_dir["Data Mov"], errors="coerce")
+    dff_dir["Data Mov_dt"] = pd.to_datetime(
+        dff_dir["Data Mov"], errors="coerce"
+    )
 
+    # ordem_acao: dá prioridade para "FIM DCC" aparecer por último no mesmo dia
     dff_dir["ordem_acao"] = (
         dff_dir["Ação"].astype(str).str.strip() != "FIM DCC"
     ).astype(int)
@@ -470,21 +538,123 @@ def atualizar_tabelas(
         na_position="last",
     )
 
-    dff_dir["Data Mov"] = dff_dir["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
+    dff_dir["Data Mov"] = (
+        dff_dir["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
+    )
 
     cols_check = ["Data Mov", "E/S", "Ação", "Deptº"]
     mask_linha_valida = dff_dir[cols_check].apply(
         lambda row: any(
-            (v_str := str(v).strip()) not in ("", "none", "nan", "<na>")
+            (v_str := str(v).strip()) not in ("", "none", "nan")
             for v in row.values
         ),
         axis=1,
     )
     dff_dir = dff_dir[mask_linha_valida].copy()
 
-    dados_direita = dff_dir[["Data Mov", "E/S", "Ação", "Deptº"]].to_dict("records")
+    dados_direita = dff_dir[["Data Mov", "E/S", "Ação", "Deptº"]].to_dict(
+        "records"
+    )
 
+    # store_dados_status será usado para o PDF
     return dados_esquerda, dados_direita, dff_dir.to_dict("records")
+
+
+# --------------------------------------------------
+# Callback: filtros em cascata (ordem-invariante)
+# --------------------------------------------------
+@dash.callback(
+    Output("filtro_requisitante", "options"),
+    Output("filtro_modalidade", "options"),
+    Output("filtro_processo", "options"),
+    Input("filtro_processo_texto", "value"),
+    Input("filtro_processo", "value"),
+    Input("filtro_requisitante", "value"),
+    Input("filtro_objeto", "value"),
+    Input("filtro_modalidade", "value"),
+)
+def atualizar_opcoes_filtros_status(
+    proc_texto,
+    proc_select,
+    requisitante,
+    objeto,
+    modalidade,
+):
+    """
+    Atualiza as opções dos dropdowns (Requisitante, Modalidade, Processo)
+    em cascata, usando um único filtro global (ordem dos filtros não importa).
+    """
+    dff = df_status.copy()
+
+    # Máscara global
+    mask = pd.Series(True, index=dff.index)
+
+    # Processo por digitação (contains)
+    if proc_texto and str(proc_texto).strip():
+        termo = str(proc_texto).strip()
+        mask &= (
+            dff["Processo"]
+            .astype(str)
+            .str.contains(termo, case=False, na=False)
+        )
+
+    # Processo por seleção
+    if proc_select:
+        mask &= dff["Processo"] == proc_select
+
+    # Requisitante
+    if requisitante:
+        mask &= dff["Requisitante"] == requisitante
+
+    # Objeto (contains)
+    if objeto and str(objeto).strip():
+        termo_obj = str(objeto).strip()
+        mask &= (
+            dff["Objeto"]
+            .astype(str)
+            .str.contains(termo_obj, case=False, na=False)
+        )
+
+    # Modalidade
+    if modalidade:
+        mask &= dff["Modalidade"] == modalidade
+
+    dff = dff[mask].copy()
+
+    # Opções de Requisitante
+    op_requisitante = [
+        {"label": r, "value": r}
+        for r in sorted(dff["Requisitante"].dropna().unique())
+        if str(r).strip() != ""
+    ]
+
+    # Opções de Modalidade
+    op_modalidade = [
+        {"label": m, "value": m}
+        for m in sorted(dff["Modalidade"].dropna().unique())
+        if str(m).strip() != ""
+    ]
+
+    # Opções de Processo (seleção) restritas ao subconjunto filtrado
+    df_proc_opts_local = dff[["Processo", "Linha"]].dropna(subset=["Processo"])
+    df_proc_opts_local["Linha_num"] = pd.to_numeric(
+        df_proc_opts_local["Linha"], errors="coerce"
+    )
+    df_proc_opts_local = df_proc_opts_local.sort_values(
+        "Linha_num", ascending=False
+    )
+    df_proc_opts_local = df_proc_opts_local.drop_duplicates(
+        subset=["Processo"], keep="first"
+    )
+
+    op_processo = [
+        {"label": row["Processo"], "value": row["Processo"]}
+        for _, row in df_proc_opts_local.iterrows()
+        if str(row["Processo"]).strip() != ""
+    ]
+
+    return op_requisitante, op_modalidade, op_processo
+
 
 # --------------------------------------------------
 # Callback: limpar filtros
@@ -499,7 +669,11 @@ def atualizar_tabelas(
     prevent_initial_call=True,
 )
 def limpar_filtros_status(n):
+    """
+    Limpa todos os filtros do painel de status do processo.
+    """
     return None, None, None, None, None
+
 
 # --------------------------------------------------
 # Estilos de texto para PDF
@@ -517,11 +691,14 @@ simple_style_status = ParagraphStyle(
     alignment=TA_CENTER,
 )
 
+
 def wrap_pdf(text):
     return Paragraph(str(text), wrap_style_status)
 
+
 def simple_pdf(text):
     return Paragraph(str(text), simple_style_status)
+
 
 # --------------------------------------------------
 # Callback: gerar relatório PDF
@@ -533,24 +710,30 @@ def simple_pdf(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_status(n, dados_status):
+    """
+    Gera relatório em PDF com duas tabelas:
+    - Dados do Processo (uma linha por processo)
+    - Movimentações (todas as movimentações filtradas)
+    """
     if not n or not dados_status:
         return None
 
     df_todos = pd.DataFrame(dados_status)
 
+    # Esquerda: um registro por processo
     df_esq = df_todos.copy()
     df_esq = df_esq.drop_duplicates(subset=["Processo"], keep="first")
     df_esq["Processo"] = df_esq["Processo"].astype(str).str.strip()
     df_esq = df_esq[df_esq["Processo"] != ""]
     df_esq = df_esq[df_esq["Processo"].str.lower() != "nan"]
 
+    # Direita: todas as movimentações válidas
     df_dir = df_todos.copy()
     if "Ação" in df_dir.columns:
         df_dir["Ação"] = df_dir["Ação"].astype(str).str.strip()
         df_dir = df_dir[df_dir["Ação"] != ""]
         df_dir = df_dir[df_dir["Ação"].str.lower() != "nan"]
         df_dir = df_dir[df_dir["Ação"].str.lower() != "none"]
-        df_dir = df_dir[df_dir["Ação"].str.lower() != "<na>"]
         df_dir = df_dir[df_dir["Ação"].notna()]
 
     if df_esq.empty and df_dir.empty:
@@ -558,6 +741,7 @@ def gerar_pdf_status(n, dados_status):
 
     buffer = BytesIO()
     pagesize = landscape(A4)
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
@@ -570,6 +754,7 @@ def gerar_pdf_status(n, dados_status):
     styles = getSampleStyleSheet()
     story = []
 
+    # Data/hora no topo
     tz_br = timezone("America/Sao_Paulo")
     data_hora = datetime.now(tz_br).strftime("%d/%m/%Y %H:%M:%S")
 
@@ -579,9 +764,11 @@ def gerar_pdf_status(n, dados_status):
         alignment=TA_RIGHT,
         textColor=colors.grey,
     )
+
     story.append(Paragraph(data_hora, header_style))
     story.append(Spacer(1, 0.1 * inch))
 
+    # Logos
     logos_path = []
     if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
         logos_path.append(os.path.join("assets", "brasaobrasil.png"))
@@ -621,6 +808,7 @@ def gerar_pdf_status(n, dados_status):
             story.append(logo_table)
             story.append(Spacer(1, 0.15 * inch))
 
+    # Título principal
     titulo = Paragraph(
         "RELATÓRIO DE STATUS DO PROCESSO",
         ParagraphStyle(
@@ -649,6 +837,7 @@ def gerar_pdf_status(n, dados_status):
                 ),
             )
         )
+
         story.append(
             Paragraph(
                 f"Total de registros: {len(df_esq)}",
@@ -657,9 +846,14 @@ def gerar_pdf_status(n, dados_status):
         )
         story.append(Spacer(1, 0.08 * inch))
 
-        cols_esq = ["Processo", "Requisitante", "Objeto", "Modalidade", "Linha"]
+        cols_esq = [
+            "Processo",
+            "Requisitante",
+            "Objeto",
+            "Modalidade",
+            "Linha",
+        ]
         cols_esq = [c for c in cols_esq if c in df_esq.columns]
-
         df_esq_filtered = df_esq[cols_esq].copy()
 
         header_esq = cols_esq
@@ -682,9 +876,13 @@ def gerar_pdf_status(n, dados_status):
             1.2 * inch,
             0.6 * inch,
         ]
+        col_widths_esq = col_widths_esq[: len(cols_esq)]
 
-        tbl_esq = Table(table_data_esq, colWidths=col_widths_esq, repeatRows=1)
-
+        tbl_esq = Table(
+            table_data_esq,
+            colWidths=col_widths_esq,
+            repeatRows=1,
+        )
         style_list_esq = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
@@ -727,6 +925,7 @@ def gerar_pdf_status(n, dados_status):
                 ),
             )
         )
+
         story.append(
             Paragraph(
                 f"Total de registros: {len(df_dir)}",
@@ -745,30 +944,26 @@ def gerar_pdf_status(n, dados_status):
         df_dir_copy["ordem_acao"] = (
             df_dir_copy["Ação"].astype(str).str.strip() != "FIM DCC"
         ).astype(int)
-
         df_dir_copy = df_dir_copy.sort_values(
             by=["Data Mov_dt", "ordem_acao"],
             ascending=[False, True],
             na_position="last",
         )
-
         df_dir_copy["Data Mov"] = (
             df_dir_copy["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
         )
-
         df_dir_copy["Ação"] = df_dir_copy["Ação"].astype(str).str.strip()
         df_dir_copy = df_dir_copy[
             (df_dir_copy["Ação"] != "")
             & (df_dir_copy["Ação"].str.lower() != "none")
             & (df_dir_copy["Ação"].str.lower() != "nan")
-            & (df_dir_copy["Ação"].str.lower() != "<na>")
         ]
 
         cols_check = ["Data Mov", "E/S", "Ação", "Deptº"]
         df_dir_copy = df_dir_copy[
             df_dir_copy[cols_check].apply(
                 lambda row: any(
-                    (v_str := str(v).strip()) not in ("", "none", "nan", "<na>")
+                    (v_str := str(v).strip()) not in ("", "none", "nan")
                     for v in row.values
                 ),
                 axis=1,
@@ -776,7 +971,6 @@ def gerar_pdf_status(n, dados_status):
         ]
 
         df_dir_filtered = df_dir_copy[cols_dir].copy()
-
         header_dir = cols_dir
         table_data_dir = [header_dir]
 
@@ -796,9 +990,13 @@ def gerar_pdf_status(n, dados_status):
             3.0 * inch,
             1.0 * inch,
         ]
+        col_widths_dir = col_widths_dir[: len(cols_dir)]
 
-        tbl_dir = Table(table_data_dir, colWidths=col_widths_dir, repeatRows=1)
-
+        tbl_dir = Table(
+            table_data_dir,
+            colWidths=col_widths_dir,
+            repeatRows=1,
+        )
         style_list_dir = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
@@ -832,4 +1030,5 @@ def gerar_pdf_status(n, dados_status):
     buffer.seek(0)
 
     from dash import dcc
+
     return dcc.send_bytes(buffer.getvalue(), "status_processos_paisagem.pdf")

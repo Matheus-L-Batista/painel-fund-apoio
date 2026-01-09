@@ -8,7 +8,6 @@ from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 
 # --------------------------------------------------
@@ -48,8 +47,10 @@ def carregar_dados_portarias():
         }
     )
 
+    # Colunas de servidores (1..15) se existirem
     cols_serv = [str(i) for i in range(1, 16) if str(i) in df.columns]
 
+    # Concatena servidores em uma única coluna
     if cols_serv:
         df["Servidores"] = (
             df[cols_serv]
@@ -95,6 +96,7 @@ def carregar_dados_portarias():
     else:
         servidores_unicos = []
 
+    # armazena lista de servidores únicos como atributo
     df._lista_servidores_unicos = servidores_unicos
 
     return df
@@ -140,6 +142,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Setor de Origem
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -162,6 +165,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Servidor (digitação)
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -174,6 +178,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Servidor (dropdown)
                         html.Div(
                             style={"minWidth": "220px", "flex": "1 1 260px"},
                             children=[
@@ -191,6 +196,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+                        # Tipo
                         html.Div(
                             style={"minWidth": "220px", "flex": "0 0 220px"},
                             children=[
@@ -237,8 +243,7 @@ layout = html.Div(
                 ),
             ],
         ),
-
-        # Texto de orientação (pode ser ajustado conforme desejar)
+        # Texto de orientação
         html.Div(
             style={
                 "marginTop": "15px",
@@ -255,7 +260,7 @@ layout = html.Div(
                 ),
             ],
         ),
-
+        # Tabela
         dash_table.DataTable(
             id="tabela_portarias_planej",
             columns=[
@@ -325,7 +330,7 @@ layout = html.Div(
 )
 
 # --------------------------------------------------
-# Callback: aplicar filtros + link clicável
+# Callback: aplicar filtros + link clicável (máscara única)
 # --------------------------------------------------
 @dash.callback(
     Output("tabela_portarias_planej", "data"),
@@ -337,43 +342,61 @@ layout = html.Div(
     Input("filtro_tipo_planej", "value"),
 )
 def atualizar_tabela_portarias_planej(
-    numero_ano_texto, setor_drop, servidor_texto, servidor_drop, tipo_sel
+    numero_ano_texto,
+    setor_drop,
+    servidor_texto,
+    servidor_drop,
+    tipo_sel,
 ):
+    """
+    Aplica todos os filtros em um único dataframe base (df_portarias_base),
+    usando uma máscara booleana combinada. A ordem dos filtros não importa.
+    """
     dff = df_portarias_base.copy()
 
-    if tipo_sel and tipo_sel != "TODOS":
-        dff = dff[dff["TIPO"] == tipo_sel]
+    mask = pd.Series(True, index=dff.index)
 
+    # Tipo
+    if tipo_sel and tipo_sel != "TODOS":
+        mask &= dff["TIPO"] == tipo_sel
+
+    # Nº/ANO da Portaria (contains, case-insensitive)
     if numero_ano_texto and str(numero_ano_texto).strip():
         termo = str(numero_ano_texto).strip().lower()
-        dff = dff[
+        mask &= (
             dff["N°/ANO da Portaria"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
-        ]
+        )
 
+    # Setor de Origem (igualdade)
     if setor_drop:
-        dff = dff[dff["Setor de Origem"] == setor_drop]
+        mask &= dff["Setor de Origem"] == setor_drop
 
+    # Servidores por texto (contains em string concatenada)
     if servidor_texto and str(servidor_texto).strip():
         termo = str(servidor_texto).strip().lower()
-        dff = dff[
+        mask &= (
             dff["Servidores"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
-        ]
+        )
 
+    # Servidor pelo dropdown (contains)
     if servidor_drop:
         termo = str(servidor_drop).strip().lower()
-        dff = dff[
+        mask &= (
             dff["Servidores"]
             .astype(str)
             .str.lower()
             .str.contains(termo, na=False)
-        ]
+        )
 
+    dff = dff[mask].copy()
+
+    # Garante apenas linhas com link válido
     dff = dff[
         dff[NOME_COL_LINK_ORIGINAL]
         .astype(str)
@@ -402,6 +425,122 @@ def atualizar_tabela_portarias_planej(
     ]
 
     return dff_display[cols_tabela].to_dict("records"), dff.to_dict("records")
+
+# --------------------------------------------------
+# Callback: filtros em cascata (ordem-invariante)
+# --------------------------------------------------
+@dash.callback(
+    Output("filtro_setor_dropdown_planej", "options"),
+    Output("filtro_servidor_dropdown_planej", "options"),
+    Output("filtro_tipo_planej", "options"),
+    Input("filtro_numero_ano_planej", "value"),
+    Input("filtro_setor_dropdown_planej", "value"),
+    Input("filtro_servidor_texto_planej", "value"),
+    Input("filtro_servidor_dropdown_planej", "value"),
+    Input("filtro_tipo_planej", "value"),
+)
+def atualizar_opcoes_filtros_portarias(
+    numero_ano_texto,
+    setor_drop,
+    servidor_texto,
+    servidor_drop,
+    tipo_sel,
+):
+    """
+    Atualiza as opções de Setor, Servidores (dropdown) e Tipo
+    em cascata, usando um único filtro global. A ordem dos filtros
+    não importa.
+    """
+    dff = df_portarias_base.copy()
+
+    mask = pd.Series(True, index=dff.index)
+
+    # Tipo
+    if tipo_sel and tipo_sel != "TODOS":
+        mask &= dff["TIPO"] == tipo_sel
+
+    # Nº/ANO da Portaria
+    if numero_ano_texto and str(numero_ano_texto).strip():
+        termo = str(numero_ano_texto).strip().lower()
+        mask &= (
+            dff["N°/ANO da Portaria"]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        )
+
+    # Setor de Origem
+    if setor_drop:
+        mask &= dff["Setor de Origem"] == setor_drop
+
+    # Servidor por texto
+    if servidor_texto and str(servidor_texto).strip():
+        termo = str(servidor_texto).strip().lower()
+        mask &= (
+            dff["Servidores"]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        )
+
+    # Servidor dropdown
+    if servidor_drop:
+        termo = str(servidor_drop).strip().lower()
+        mask &= (
+            dff["Servidores"]
+            .astype(str)
+            .str.lower()
+            .str.contains(termo, na=False)
+        )
+
+    dff = dff[mask].copy()
+
+    # Opções de Setor de Origem
+    op_setor = [
+        {"label": s, "value": s}
+        for s in sorted(dff["Setor de Origem"].dropna().unique())
+        if str(s).strip() != ""
+    ]
+
+    # Opções de Servidores (lista única a partir do subconjunto filtrado)
+    cols_serv = [str(i) for i in range(1, 16) if str(i) in dff.columns]
+    if cols_serv:
+        todos_serv = pd.Series(dff[cols_serv].values.ravel("K"), dtype="object")
+        servidores_unicos_filtrados = sorted(
+            [
+                s
+                for s in todos_serv.unique()
+                if isinstance(s, str) and s.strip() != ""
+            ]
+        )
+    else:
+        servidores_unicos_filtrados = []
+
+    op_servidor = [
+        {"label": s, "value": s}
+        for s in servidores_unicos_filtrados
+    ]
+
+    # Opções de Tipo, mantendo a opção "TODOS" sempre
+    tipos_presentes = sorted(
+        [t for t in dff["TIPO"].dropna().unique() if str(t).strip() != ""]
+    )
+    op_tipo = [{"label": "Todos", "value": "TODOS"}]
+
+    mapa_rotulos_tipo = {
+        "PORTARIA DE PLANEJAMENTO DA CONTRATAÇÃO": "PLANEJAMENTO DA CONTRATAÇÃO",
+        "PORTARIA DE PLANEJAMENTO DA CONTRATAÇÃO - TI": "PLANEJAMENTO DA CONTRATAÇÃO - TI",
+    }
+
+    for t in tipos_presentes:
+        op_tipo.append(
+            {
+                "label": mapa_rotulos_tipo.get(t, t),
+                "value": t,
+            }
+        )
+
+    return op_setor, op_servidor, op_tipo
 
 # --------------------------------------------------
 # Callback: limpar filtros
@@ -595,14 +734,14 @@ def gerar_pdf_port_planej(n, dados_port):
         table_data.append([wrap(row[c]) for c in cols])
 
     page_width = pagesize[0] - 0.6 * inch
-    
+
     # Larguras proporcionais das colunas
     col_widths = [
         0.8 * inch,        # Data
         0.9 * inch,        # N°/ANO da Portaria
         1.0 * inch,        # Setor de Origem
         1.2 * inch,        # TIPO
-        page_width - (0.8 + 0.9 + 1.0 + 1.2) * inch,  # Servidores (resto)
+        page_width - (0.8 + 0.9 + 1.0 + 1.2) * inch,  # Servidores
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)

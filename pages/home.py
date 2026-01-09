@@ -5,7 +5,6 @@ dash.register_page(
     __name__,
     path="/",
     name="Início",
-
 )
 
 layout = html.Div(
