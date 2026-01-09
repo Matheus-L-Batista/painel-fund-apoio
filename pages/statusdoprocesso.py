@@ -93,7 +93,7 @@ def carregar_dados_status():
         if col == "Data Mov":
             continue
 
-        suf = col[len("Data Mov"):]
+        suf = col[len("Data Mov") :]
         col_data = f"Data Mov{suf}"
         col_es = f"E/S{suf}"
         col_dept = f"Deptº{suf}"
@@ -155,7 +155,6 @@ def carregar_dados_status():
     tabela_unida["Finalizado"] = tabela_unida["Finalizado"].fillna("")
 
     return tabela_unida
-
 
 df_status = carregar_dados_status()
 
@@ -429,6 +428,37 @@ layout = html.Div(
 )
 
 # --------------------------------------------------
+# Função auxiliar: filtro e limpeza de <NA>
+# --------------------------------------------------
+def limpar_linhas_invalidas(df, colunas_check=None):
+    """
+    Remove linhas onde TODAS as colunas_check são <NA>, vazio ou inválido.
+    Se colunas_check não for fornecido, verifica todas as colunas.
+    """
+    if df.empty:
+        return df
+
+    if colunas_check is None:
+        colunas_check = df.columns.tolist()
+
+    colunas_check = [c for c in colunas_check if c in df.columns]
+
+    def eh_valido(valor):
+        """Verifica se valor é válido (não é <NA>, None, vazio, 'nan', 'none')"""
+        if pd.isna(valor):
+            return False
+        valor_str = str(valor).strip().lower()
+        if valor_str in ("", "nan", "none", "<na>", "nat"):
+            return False
+        return True
+
+    # Mantém apenas linhas onde pelo menos uma coluna tem valor válido
+    mask = df[colunas_check].apply(
+        lambda row: any(eh_valido(v) for v in row.values), axis=1
+    )
+    return df[mask].copy()
+
+# --------------------------------------------------
 # Callback principal: tabelas (filtro ordem-invariante)
 # --------------------------------------------------
 @dash.callback(
@@ -501,25 +531,35 @@ def atualizar_tabelas(
 
     dff = dff.sort_values("Linha_ordenacao", ascending=False)
 
+    # ===== TABELA ESQUERDA =====
     # Tabela esquerda: dados do processo (uma linha por processo)
     mask_proc_valido = dff["Processo"].astype(str).str.strip().ne("")
     dff_esq = dff[mask_proc_valido].copy()
     dff_esq = dff_esq.drop_duplicates(subset=["Processo"], keep="first")
 
+    # NOVO: Limpa linhas com <NA> ou inválidas
+    dff_esq = limpar_linhas_invalidas(
+        dff_esq,
+        colunas_check=["Processo", "Requisitante", "Objeto", "Modalidade"]
+    )
+
     dados_esquerda = dff_esq[
         ["Processo", "Requisitante", "Objeto", "Modalidade", "Linha"]
     ].to_dict("records")
 
-    # Tabela direita: movimentações (limpando linhas vazias / inválidas)
+    # ===== TABELA DIREITA =====
     dff_dir = dff.copy()
 
     for c in ["Data Mov", "E/S", "Ação", "Deptº"]:
         dff_dir[c] = dff_dir[c].astype(str).str.strip()
 
+    # Remove linhas onde Ação é inválida
     mask_acao_valida = (
         dff_dir["Ação"].ne("")
         & dff_dir["Ação"].str.lower().ne("none")
         & dff_dir["Ação"].str.lower().ne("nan")
+        & dff_dir["Ação"].str.lower().ne("<na>")
+        & dff_dir["Ação"].str.lower().ne("nat")
     )
     dff_dir = dff_dir[mask_acao_valida].copy()
 
@@ -542,10 +582,16 @@ def atualizar_tabelas(
         dff_dir["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
     )
 
+    # NOVO: Limpa linhas com <NA> ou inválidas nas colunas principais
+    dff_dir = limpar_linhas_invalidas(
+        dff_dir,
+        colunas_check=["Data Mov", "E/S", "Ação", "Deptº"]
+    )
+
     cols_check = ["Data Mov", "E/S", "Ação", "Deptº"]
     mask_linha_valida = dff_dir[cols_check].apply(
         lambda row: any(
-            (v_str := str(v).strip()) not in ("", "none", "nan")
+            (v_str := str(v).strip()) not in ("", "none", "nan", "<na>", "nat")
             for v in row.values
         ),
         axis=1,
@@ -558,7 +604,6 @@ def atualizar_tabelas(
 
     # store_dados_status será usado para o PDF
     return dados_esquerda, dados_direita, dff_dir.to_dict("records")
-
 
 # --------------------------------------------------
 # Callback: filtros em cascata (ordem-invariante)
@@ -621,18 +666,21 @@ def atualizar_opcoes_filtros_status(
 
     dff = dff[mask].copy()
 
+    # NOVO: Limpa <NA> antes de gerar options
+    dff = limpar_linhas_invalidas(dff)
+
     # Opções de Requisitante
     op_requisitante = [
         {"label": r, "value": r}
         for r in sorted(dff["Requisitante"].dropna().unique())
-        if str(r).strip() != ""
+        if str(r).strip() not in ("", "nan", "none", "<na>", "nat")
     ]
 
     # Opções de Modalidade
     op_modalidade = [
         {"label": m, "value": m}
         for m in sorted(dff["Modalidade"].dropna().unique())
-        if str(m).strip() != ""
+        if str(m).strip() not in ("", "nan", "none", "<na>", "nat")
     ]
 
     # Opções de Processo (seleção) restritas ao subconjunto filtrado
@@ -650,11 +698,10 @@ def atualizar_opcoes_filtros_status(
     op_processo = [
         {"label": row["Processo"], "value": row["Processo"]}
         for _, row in df_proc_opts_local.iterrows()
-        if str(row["Processo"]).strip() != ""
+        if str(row["Processo"]).strip() not in ("", "nan", "none", "<na>", "nat")
     ]
 
     return op_requisitante, op_modalidade, op_processo
-
 
 # --------------------------------------------------
 # Callback: limpar filtros
@@ -674,7 +721,6 @@ def limpar_filtros_status(n):
     """
     return None, None, None, None, None
 
-
 # --------------------------------------------------
 # Estilos de texto para PDF
 # --------------------------------------------------
@@ -691,14 +737,11 @@ simple_style_status = ParagraphStyle(
     alignment=TA_CENTER,
 )
 
-
 def wrap_pdf(text):
     return Paragraph(str(text), wrap_style_status)
 
-
 def simple_pdf(text):
     return Paragraph(str(text), simple_style_status)
-
 
 # --------------------------------------------------
 # Callback: gerar relatório PDF
@@ -720,21 +763,35 @@ def gerar_pdf_status(n, dados_status):
 
     df_todos = pd.DataFrame(dados_status)
 
-    # Esquerda: um registro por processo
+    # ===== ESQUERDA: um registro por processo =====
     df_esq = df_todos.copy()
     df_esq = df_esq.drop_duplicates(subset=["Processo"], keep="first")
     df_esq["Processo"] = df_esq["Processo"].astype(str).str.strip()
     df_esq = df_esq[df_esq["Processo"] != ""]
     df_esq = df_esq[df_esq["Processo"].str.lower() != "nan"]
+    df_esq = df_esq[df_esq["Processo"].str.lower() != "<na>"]
 
-    # Direita: todas as movimentações válidas
+    # NOVO: Limpa <NA> da tabela esquerda
+    df_esq = limpar_linhas_invalidas(
+        df_esq,
+        colunas_check=["Processo", "Requisitante", "Objeto", "Modalidade"]
+    )
+
+    # ===== DIREITA: todas as movimentações válidas =====
     df_dir = df_todos.copy()
     if "Ação" in df_dir.columns:
         df_dir["Ação"] = df_dir["Ação"].astype(str).str.strip()
         df_dir = df_dir[df_dir["Ação"] != ""]
         df_dir = df_dir[df_dir["Ação"].str.lower() != "nan"]
         df_dir = df_dir[df_dir["Ação"].str.lower() != "none"]
+        df_dir = df_dir[df_dir["Ação"].str.lower() != "<na>"]
         df_dir = df_dir[df_dir["Ação"].notna()]
+
+    # NOVO: Limpa <NA> da tabela direita
+    df_dir = limpar_linhas_invalidas(
+        df_dir,
+        colunas_check=["Data Mov", "E/S", "Ação", "Deptº"]
+    )
 
     if df_esq.empty and df_dir.empty:
         return None
@@ -957,13 +1014,14 @@ def gerar_pdf_status(n, dados_status):
             (df_dir_copy["Ação"] != "")
             & (df_dir_copy["Ação"].str.lower() != "none")
             & (df_dir_copy["Ação"].str.lower() != "nan")
+            & (df_dir_copy["Ação"].str.lower() != "<na>")
         ]
 
         cols_check = ["Data Mov", "E/S", "Ação", "Deptº"]
         df_dir_copy = df_dir_copy[
             df_dir_copy[cols_check].apply(
                 lambda row: any(
-                    (v_str := str(v).strip()) not in ("", "none", "nan")
+                    (v_str := str(v).strip()) not in ("", "none", "nan", "<na>", "nat")
                     for v in row.values
                 ),
                 axis=1,

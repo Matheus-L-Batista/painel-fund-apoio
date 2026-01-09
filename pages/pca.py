@@ -248,7 +248,7 @@ layout = html.Div(
                                         )
                                         if str(a).strip() != ""
                                     ],
-                                    value="2025",
+                                    value="2026",
                                     placeholder=None,
                                     clearable=False,
                                     style=dropdown_style,
@@ -853,7 +853,7 @@ def atualizar_tabelas_pca(
     prevent_initial_call=True,
 )
 def limpar_filtros_pca(n):
-    return "2025", None, None, None, None
+    return "2026", None, None, None, None
 
 
 # --------------------------------------------------
@@ -1234,4 +1234,4 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
 
     from dash import dcc
 
-    return dcc.send_bytes(buffer.getvalue(), "pca_relatorio_paisagem.pdf")
+    return dcc.send_bytes(buffer.getvalue(), "pca_relatorio.pdf")
