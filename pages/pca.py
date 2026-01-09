@@ -110,6 +110,7 @@ def carregar_dados_pca():
 
     df["Ano"] = df["Ano"].astype("string")
 
+    # Colunas de texto
     for c in [
         "Área requisitante",
         "Material ou Serviço",
@@ -117,7 +118,6 @@ def carregar_dados_pca():
         "Item",
         "Código Classe / Grupo",
         "Nome Classe/Grupo",
-        "Código PDM material",
         "Nome do PDM material",
         "Processo",
         "Observações",
@@ -125,6 +125,16 @@ def carregar_dados_pca():
     ]:
         if c in df.columns:
             df[c] = df[c].astype("string")
+
+    # Conversão específica de Código PDM material para inteiro (nullable)
+    if "Código PDM material" in df.columns:
+        df["Código PDM material"] = (
+            df["Código PDM material"]
+            .apply(lambda x: str(x).strip() if pd.notna(x) else "")
+        )
+        df["Código PDM material"] = pd.to_numeric(
+            df["Código PDM material"].replace({"": None}), errors="coerce"
+        ).astype("Int64")
 
     return df
 
@@ -452,6 +462,7 @@ layout = html.Div(
                                 {"name": "Saldo", "id": "Saldo_fmt"},
                             ],
                             data=[],
+                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
                                 "overflowY": "auto",
@@ -562,6 +573,7 @@ layout = html.Div(
                                 {"name": "Valor", "id": "Valor_fmt"},
                             ],
                             data=[],
+                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
                                 "overflowY": "auto",
@@ -735,6 +747,12 @@ def atualizar_tabelas_pca(
     )
 
     dff_plan["Saldo_num"] = dff_plan["Saldo"]
+
+    # Exibir Código PDM material como inteiro (sem NaN)
+    if "Código PDM material" in dff_plan.columns:
+        dff_plan["Código PDM material"] = dff_plan["Código PDM material"].apply(
+            lambda x: "" if pd.isna(x) else int(x)
+        )
 
     def marca_executado(v):
         if v is None or pd.isna(v):
@@ -1162,7 +1180,6 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             "Observações",
             "Valor_fmt",
         ]
-
         cols_proc = [c for c in cols_proc if c in df_proc.columns]
         df_proc_filtered = df_proc[cols_proc].copy()
 
@@ -1182,7 +1199,7 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             linha = []
             for c in cols_proc:
                 valor = str(row[c]).strip()
-                if c in ["Objeto", "Observações", "Processo"]:
+                if c in ["Objeto", "Observações"]:
                     linha.append(wrap_pdf(valor))
                 else:
                     linha.append(simple_pdf(valor))
@@ -1193,9 +1210,9 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             1.1 * inch,  # Área requisitante
             1.0 * inch,  # Material ou Serviço
             0.5 * inch,  # Item
-            2.0 * inch,  # Processo
+            1.1 * inch,  # Processo
             2.0 * inch,  # Objeto
-            1.3 * inch,  # Observações
+            2.0 * inch,  # Observações
             0.95 * inch,  # Valor
         ]
 
@@ -1232,6 +1249,6 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     doc.build(story)
     buffer.seek(0)
 
-    from dash import dcc
-
-    return dcc.send_bytes(buffer.getvalue(), "pca_relatorio.pdf")
+    return dcc.send_bytes(
+        buffer.getvalue(), f"relatorio_pca_{data_hora_brasilia}.pdf"
+    )
