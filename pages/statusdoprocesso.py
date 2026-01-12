@@ -337,7 +337,7 @@ layout = html.Div(
                             id="tabela_status_esquerda",
                             columns=[
                                 {"name": "Processo", "id": "Processo"},
-                                {"name": "Requisitante", "id": "Requisitante"},
+                                {"name": "Deptº", "id": "Requisitante"},
                                 {"name": "Objeto", "id": "Objeto"},
                                 {"name": "Modalidade", "id": "Modalidade"},
                                 {"name": "Linha", "id": "Linha"},
