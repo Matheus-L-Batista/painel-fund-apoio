@@ -7,7 +7,8 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* quem vai rolar é só .main-content */
+    overflow: hidden;           /* quem vai rolar é só .main-content */
+    background-color: #0b2b57;  /* mesma cor da barra, esconde qualquer 1px de gap */
 }
 
 /* conteúdo principal do Dash */
@@ -37,7 +38,7 @@ html, body {
 .app-container {
     display: flex;
     width: 100%;
-    height: 100vh;   /* menu + conteúdo ocupam a viewport inteira */
+    height: 100vh; /* menu + conteúdo ocupam a viewport inteira */
     overflow: hidden; /* impede rolagem no container geral */
 }
 
@@ -47,11 +48,11 @@ html, body {
 
 .sidebar {
     width: var(--sidebar-width);
-    height: 100%;           /* menu ocupando a altura toda da tela */
+    height: 100vh;        /* ocupa sempre toda a altura da tela */
     padding: 24px 20px;
     background-color: #0b2b57;
     color: white;
-    overflow: hidden;       /* sem rolagem no menu */
+    overflow: hidden;     /* sem rolagem no menu */
     box-sizing: border-box;
     flex-shrink: 0;
 }
@@ -118,10 +119,11 @@ html, body {
 
 .main-content {
     flex: 1;
-    height: 100%;                 /* acompanha a altura do container (100vh) */
-    padding: 0 0 0 8px;           /* distância da barra azul */
+    height: 100%;
+    padding: 0;                /* nenhum espaço entre barra azul e imagem */
     background-color: #ffffff;
-    overflow-y: auto;             /* rolagem só aqui (segunda coluna) */
+    overflow-y: auto;          /* rolagem só aqui (segunda coluna) */
+    overflow-x: hidden;        /* evita rolagem horizontal */
     box-sizing: border-box;
 }
 
@@ -147,22 +149,24 @@ html, body {
 /* HOME */
 /* ========================= */
 
-/* HOME – imagem ocupando toda a área ao lado da sidebar */
+/* HOME – imagem ocupando somente a área ao lado da sidebar */
 .home-container {
     background-image: url("/assets/Painel DCC.png");
     background-repeat: no-repeat;
-    background-position: center;
-    background-size: cover;
-    width: 100%;
-    min-height: 100vh; /* força ocupar a tela inteira */
+    background-position: left top;   /* começa colada na sidebar */
+    background-size: cover;          /* cobre toda a área disponível */
+
+    width: calc(100vw - var(--sidebar-width));  /* largura total menos a barra azul */
+    height: 100vh;                               /* altura da viewport */
+
+    margin: 0;
+    padding: 0;
+
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;  /* mantém a home “travada” visualmente */
+    overflow: hidden;
 }
 
-/* sobreposição azul 80% de transparência */
+/* sobreposição azul leve */
 .home-overlay {
     position: absolute;
     top: 0;
@@ -227,6 +231,7 @@ html, body {
 /* ========================= */
 
 @media (max-width: 768px) {
+
     .sidebar {
         position: relative;
         width: 100%;
@@ -268,9 +273,7 @@ html, body {
         box-shadow: none;
         padding: 6px 0 8px 0;
     }
-}
 
-@media (max-width: 768px) {
     .card-value {
         font-size: 18px;
     }
