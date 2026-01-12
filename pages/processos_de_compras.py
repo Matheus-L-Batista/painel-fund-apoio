@@ -162,7 +162,6 @@ def formatar_moeda(v):
         .replace("X", ".")
     )
 
-
 # Lista fixa de meses em ordem cronológica
 MESES_ORDENADOS = [
     "janeiro",
@@ -499,6 +498,17 @@ layout = html.Div(
                         "top": 0,
                         "zIndex": 10,
                     },
+                    # Linhas alternando branco e cinza
+                    style_data_conditional=[
+                        {
+                            "if": {"row_index": "odd"},
+                            "backgroundColor": "#ffffff",
+                        },
+                        {
+                            "if": {"row_index": "even"},
+                            "backgroundColor": "#f0f0f0",
+                        },
+                    ],
                 ),
                 # Store com os dados filtrados (base para PDF)
                 dcc.Store(id="store_dados_proc"),
@@ -506,9 +516,6 @@ layout = html.Div(
         ),
     ]
 )
-
-#4. Callback: tabela, cards e gráficos
-
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
 # ----------------------------------------
@@ -966,7 +973,6 @@ def atualizar_opcoes_filtros(
 
     return op_solicitante, op_objeto, op_modalidade, op_status, op_classif
 
-
 # ----------------------------------------
 # Callback: limpar filtros (volta sempre para ano atual)
 # ----------------------------------------
@@ -1184,7 +1190,6 @@ def simple_pdf_compras(text):
 def header_pdf_compras(text):
     return Paragraph(str(text), header_cell_style_compras)
 
-
 # --------------------------------------------------
 # Função: criar tabela de dados do processo (COMPRAS)
 # --------------------------------------------------
@@ -1260,6 +1265,7 @@ def criar_tabela_dados_compras(story, df, pagesize):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        # Linhas alternadas em branco e cinza claro
         (
             "ROWBACKGROUNDS",
             (0, 1),
@@ -1271,7 +1277,6 @@ def criar_tabela_dados_compras(story, df, pagesize):
 
     tbl.setStyle(TableStyle(style_list))
     story.append(tbl)
-
 
 # --------------------------------------------------
 # Callback: gerar PDF de processos de compras
