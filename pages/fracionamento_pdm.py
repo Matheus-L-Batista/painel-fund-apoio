@@ -599,7 +599,6 @@ def limpar_filtros_limite_itajuba_pdm(n):
 # PDF
 # --------------------------------------------------
 
-
 # Estilo para as células de dados (texto preto)
 wrap_style_data_pdm = ParagraphStyle(
     name="wrap_limite_itajuba_pdm_data",
@@ -626,6 +625,7 @@ def wrap_data_pdm(text):
 def wrap_header_pdm(text):
     return Paragraph(str(text), wrap_style_header_pdm)
 
+
 @dash.callback(
     Output("download_relatorio_limite_itajuba_pdm", "data"),
     Input("btn_download_relatorio_limite_itajuba_pdm", "n_clicks"),
@@ -633,6 +633,7 @@ def wrap_header_pdm(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_limite_itajuba_pdm(n, dados):
+
     if not n or not dados:
         return None
 
@@ -653,85 +654,87 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
     styles = getSampleStyleSheet()
     story = []
 
+    # -------- Data / Hora --------
     tz_brasilia = timezone("America/Sao_Paulo")
     data_hora_brasilia = datetime.now(tz_brasilia).strftime(
         "%d/%m/%Y %H:%M:%S"
     )
 
     data_top_table = Table(
-        [
-            [
-                Paragraph(
-                    data_hora_brasilia,
-                    ParagraphStyle(
-                        "data_topo",
-                        fontSize=9,
-                        alignment=TA_RIGHT,
-                        textColor="#333333",
-                    ),
-                )
-            ]
-        ],
+        [[
+            Paragraph(
+                data_hora_brasilia,
+                ParagraphStyle(
+                    "data_topo",
+                    fontSize=9,
+                    alignment=TA_RIGHT,
+                    textColor="#333333",
+                ),
+            )
+        ]],
         colWidths=[pagesize[0] - 0.6 * inch],
     )
 
     data_top_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
-        )
+        TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ])
     )
 
     story.append(data_top_table)
-    story.append(Spacer(1, 0.1 * inch))
+    story.append(Spacer(1, 0.15 * inch))
 
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
+    # -------- Cabeçalho: Logo | Texto | Logo --------
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png") else ""
+    )
 
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png") else ""
+    )
 
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.3 * inch,
-                        pagesize[0] / 2 - 0.3 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.6 * inch],
-                )
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
 
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
+    instituicao = Paragraph(
+        texto_instituicao,
+        ParagraphStyle(
+            "instituicao_pdm",
+            alignment=TA_CENTER,
+            leading=16,
+        ),
+    )
 
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
+    )
 
-    # Título COM QUEBRAS DE LINHA
+    cabecalho.setStyle(
+        TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ])
+    )
+
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # -------- Título --------
     titulo_texto = (
-        "CONSULTA PDM<br/>"
-        "LIMITE DE GASTO COM DISPENSA DE LICITAÇÃO EM FUNÇÃO DO VALOR<br/>"
-        "UASG: 153030 - Campus Itajubá"
+        "Consulta Fracionamento de Despesa 2026 - PDM (Material): UASG: 153030 - Campus Itajubá<br/>"
+        
     )
 
     titulo_paragraph = Paragraph(
@@ -746,26 +749,15 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
         ),
     )
 
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.6 * inch],
-    )
-
-    titulo_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ]
-        )
-    )
-
-    story.append(titulo_table)
+    story.append(titulo_paragraph)
     story.append(Spacer(1, 0.15 * inch))
 
-    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
+    story.append(
+        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
+    )
     story.append(Spacer(1, 0.1 * inch))
 
+    # -------- Tabela --------
     cols = [
         COL_PDM,
         "Descrição",
@@ -789,36 +781,27 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
         )
 
     df_pdf = df.copy()
-    for col in [
-        "Valor Empenhado",
-        "Limite da Dispensa",
-        "Saldo para contratação",
-    ]:
-        if col in df_pdf.columns:
-            df_pdf[col] = df_pdf[col].apply(fmt_moeda_pdf)
+    for col in cols[2:]:
+        df_pdf[col] = df_pdf[col].apply(fmt_moeda_pdf)
 
-    df_pdf = df_pdf.fillna("")
-
-    # Cabeçalho com texto branco
     header = [wrap_header_pdm(col) for col in cols]
     table_data = [header]
 
-    # Linhas de dados com texto preto
     saldo_values = df["Saldo para contratação"].fillna(0).tolist()
 
     for _, row in df_pdf[cols].iterrows():
-        linha = [wrap_data_pdm(row[c]) for c in cols]
-        table_data.append(linha)
+        table_data.append(
+            [wrap_data_pdm(row[c]) for c in cols]
+        )
 
     page_width = pagesize[0] - 0.6 * inch
 
-    # Larguras proporcionais das colunas
     col_widths = [
-        0.9 * inch,  # COL_PDM
-        page_width - (0.9 + 1.1 + 1.1 + 1.1) * inch,  # Descrição
-        1.1 * inch,  # Valor Empenhado
-        1.1 * inch,  # Limite da Dispensa
-        1.1 * inch,  # Saldo para contratação
+        0.9 * inch,
+        page_width - (0.9 + 1.1 + 1.1 + 1.1) * inch,
+        1.1 * inch,
+        1.1 * inch,
+        1.1 * inch,
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -837,39 +820,29 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
         ("RIGHTPADDING", (0, 0), (-1, -1), 3),
     ]
 
-    # Descrição alinhada à esquerda APENAS nos dados (linhas 1+)
     for row_idx in range(1, len(table_data)):
         table_styles.append(
             ("ALIGN", (1, row_idx), (1, row_idx), "LEFT")
         )
 
-    # Linhas com saldo negativo em vermelho
     for row_idx, saldo in enumerate(saldo_values, 1):
-        if pd.notna(saldo) and saldo <= 0:
+        if saldo <= 0:
             table_styles.append(
-                (
-                    "BACKGROUND",
-                    (0, row_idx),
-                    (-1, row_idx),
-                    colors.HexColor("#ffcccc"),
-                )
+                ("BACKGROUND", (0, row_idx), (-1, row_idx),
+                 colors.HexColor("#ffcccc"))
             )
             table_styles.append(
-                (
-                    "TEXTCOLOR",
-                    (0, row_idx),
-                    (-1, row_idx),
-                    colors.HexColor("#cc0000"),
-                )
+                ("TEXTCOLOR", (0, row_idx), (-1, row_idx),
+                 colors.HexColor("#cc0000"))
             )
 
     tbl.setStyle(TableStyle(table_styles))
-
     story.append(tbl)
 
     doc.build(story)
     buffer.seek(0)
 
     return dcc.send_bytes(
-        buffer.getvalue(), "limite_gasto_itajuba_pdm.pdf"
+        buffer.getvalue(),
+        "limite_gasto_itajuba_pdm.pdf",
     )

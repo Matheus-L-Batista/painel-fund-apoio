@@ -596,25 +596,23 @@ def limpar_filtros_limite_itajuba(n):
 
 
 
+# --------------------------------------------------
 # PDF
 # --------------------------------------------------
 
-# Estilo para as células de dados (texto preto)
+# Estilos das células
 wrap_style_data = ParagraphStyle(
     name="wrap_limite_itajuba_data",
     fontSize=8,
     leading=10,
-    spaceAfter=4,
     alignment=TA_CENTER,
     textColor=colors.black,
 )
 
-# Estilo para o cabeçalho (texto branco)
 wrap_style_header = ParagraphStyle(
     name="wrap_limite_itajuba_header",
     fontSize=8,
     leading=10,
-    spaceAfter=4,
     alignment=TA_CENTER,
     textColor=colors.white,
 )
@@ -625,6 +623,7 @@ def wrap_data(text):
 def wrap_header(text):
     return Paragraph(str(text), wrap_style_header)
 
+
 @dash.callback(
     Output("download_relatorio_limite_itajuba", "data"),
     Input("btn_download_relatorio_limite_itajuba", "n_clicks"),
@@ -632,6 +631,7 @@ def wrap_header(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_limite_itajuba(n, dados):
+
     if not n or not dados:
         return None
 
@@ -639,6 +639,7 @@ def gerar_pdf_limite_itajuba(n, dados):
 
     buffer = BytesIO()
     pagesize = landscape(A4)
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
@@ -651,106 +652,93 @@ def gerar_pdf_limite_itajuba(n, dados):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data/hora Brasília
+    # -------- Data / Hora --------
     tz_brasilia = timezone("America/Sao_Paulo")
-    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
-    data_top_table = Table(
-        [[Paragraph(
-            data_hora_brasilia,
-            ParagraphStyle(
-                "data_topo",
-                fontSize=9,
-                alignment=TA_RIGHT,
-                textColor="#333333",
-            ),
-        )]],
-        colWidths=[pagesize[0] - 0.6 * inch],
+    data_hora = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+
+    story.append(
+        Table(
+            [[Paragraph(
+                data_hora,
+                ParagraphStyle(
+                    "data_topo",
+                    fontSize=9,
+                    alignment=TA_RIGHT,
+                    textColor="#333333",
+                ),
+            )]],
+            colWidths=[pagesize[0] - 0.6 * inch],
+        )
     )
-    data_top_table.setStyle(
-        TableStyle([
-            ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ])
-    )
-    story.append(data_top_table)
-    story.append(Spacer(1, 0.1 * inch))
+    story.append(Spacer(1, 0.15 * inch))
 
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
-
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
-
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.3 * inch,
-                        pagesize[0] / 2 - 0.3 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.6 * inch],
-                )
-
-            logo_table.setStyle(
-                TableStyle([
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ])
-            )
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título
-    titulo_texto = (
-        "CONSULTA CATSER<br/>"
-        "LIMITE DE GASTO COM DISPENSA DE LICITAÇÃO EM FUNÇÃO DO VALOR<br/>"
-        "UASG: 153030 - Campus Itajubá"
+    # -------- Cabeçalho: Logo | Texto | Logo --------
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png") else ""
     )
 
-    titulo_paragraph = Paragraph(
-        titulo_texto,
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png") else ""
+    )
+
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
+
+    instituicao = Paragraph(
+        texto_instituicao,
         ParagraphStyle(
-            "titulo_consulta_catser",
-            fontSize=10,
+            "instituicao",
             alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
-            leading=14,
+            leading=16,
         ),
     )
 
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.6 * inch],
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
     )
-    titulo_table.setStyle(
+
+    cabecalho.setStyle(
         TableStyle([
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ])
     )
-    story.append(titulo_table)
-    story.append(Spacer(1, 0.15 * inch))
+
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # -------- Título --------
+    titulo = Paragraph(
+        "Consulta Fracionamento de Despesa 2026 - CATSER (Serviço): UASG: 153030 - Campus Itajubá<br/>",
+        ParagraphStyle(
+            "titulo",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
 
     story.append(
         Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
     )
-    story.append(Spacer(1, 0.1 * inch))
+    story.append(Spacer(1, 0.15 * inch))
 
-    # Dados da tabela
+    # -------- Tabela --------
     cols = [
         COL_CATSER,
         "Descrição",
@@ -758,11 +746,12 @@ def gerar_pdf_limite_itajuba(n, dados):
         "Limite da Dispensa",
         "Saldo para contratação",
     ]
+
     for c in cols:
         if c not in df.columns:
             df[c] = ""
 
-    def fmt_moeda_pdf(v):
+    def fmt_moeda(v):
         if pd.isna(v):
             return ""
         return "R$ " + (
@@ -773,62 +762,47 @@ def gerar_pdf_limite_itajuba(n, dados):
         )
 
     df_pdf = df.copy()
-    for col in ["Valor Empenhado", "Limite da Dispensa", "Saldo para contratação"]:
-        if col in df_pdf.columns:
-            df_pdf[col] = df_pdf[col].apply(fmt_moeda_pdf)
+    for c in cols[2:]:
+        df_pdf[c] = df_pdf[c].apply(fmt_moeda)
 
-    df_pdf = df_pdf.fillna("")
-
-    # Cabeçalho com texto branco
-    header = [wrap_header(col) for col in cols]
+    header = [wrap_header(c) for c in cols]
     table_data = [header]
 
-    # Linhas de dados com texto preto
     saldo_values = df["Saldo para contratação"].fillna(0).tolist()
 
     for _, row in df_pdf[cols].iterrows():
-        linha = [wrap_data(row[c]) for c in cols]
-        table_data.append(linha)
+        table_data.append([wrap_data(row[c]) for c in cols])
 
     page_width = pagesize[0] - 0.6 * inch
     col_widths = [
-        0.9 * inch,                                          # CATSER
-        page_width - (0.9 + 1.1 + 1.1 + 1.1) * inch,         # Descrição
-        1.1 * inch,                                          # Valor Empenhado
-        1.1 * inch,                                          # Limite da Dispensa
-        1.1 * inch,                                          # Saldo para contratação
+        0.9 * inch,
+        page_width - (0.9 + 1.1 + 1.1 + 1.1) * inch,
+        1.1 * inch,
+        1.1 * inch,
+        1.1 * inch,
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
 
     table_styles = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),  # redundante, mas ok
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("WORDWRAP", (0, 0), (-1, -1), True),
         ("FONTSIZE", (0, 0), (-1, -1), 7),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
     ]
 
-    # Descrição alinhada à esquerda nas linhas de dados
-    for row_idx in range(1, len(table_data)):
-        table_styles.append(("ALIGN", (1, row_idx), (1, row_idx), "LEFT"))
+    for i in range(1, len(table_data)):
+        table_styles.append(("ALIGN", (1, i), (1, i), "LEFT"))
 
-    # Linhas com saldo negativo em vermelho
-    for row_idx, saldo in enumerate(saldo_values, 1):
-        if pd.notna(saldo) and saldo <= 0:
+    for i, saldo in enumerate(saldo_values, 1):
+        if saldo <= 0:
             table_styles.append(
-                ("BACKGROUND", (0, row_idx), (-1, row_idx),
-                 colors.HexColor("#ffcccc"))
+                ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#ffcccc"))
             )
             table_styles.append(
-                ("TEXTCOLOR", (0, row_idx), (-1, row_idx),
-                 colors.HexColor("#cc0000"))
+                ("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#cc0000"))
             )
 
     tbl.setStyle(TableStyle(table_styles))

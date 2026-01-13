@@ -155,7 +155,7 @@ def atualizar_menu(pathname):
                 className=fr_content_classes,
                 children=[
                     dcc.Link(
-                        "Fracionamento de Despesas PDM",
+                        "Fracionamento de Despesas PDM (Material)",
                         href="/fracionamento_pdm",
                         className=(
                             "fracionamento-subbutton fracionamento-subbutton-active"
@@ -164,7 +164,7 @@ def atualizar_menu(pathname):
                         ),
                     ),
                     dcc.Link(
-                        "Fracionamento de Despesas CATSER",
+                        "Fracionamento de Despesas CATSER (Serviço)",
                         href="/fracionamento_catser",
                         className=(
                             "fracionamento-subbutton fracionamento-subbutton-active"
