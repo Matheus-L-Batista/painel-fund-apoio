@@ -40,16 +40,11 @@ dropdown_style = {
     "width": "100%",
     "marginBottom": "6px",
     "whiteSpace": "normal",
-<<<<<<< HEAD
-}
-
-
-=======
     "position": "relative",   # NOVO
     "zIndex": 1000,           # NOVO
 }
 
->>>>>>> 5126a19 (Ajusta layout do painel)
+
 def conv_moeda_br(v):
     if isinstance(v, str):
         v = v.strip()
@@ -65,10 +60,7 @@ def conv_moeda_br(v):
     except (TypeError, ValueError):
         return None
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 def formatar_moeda(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
@@ -78,10 +70,7 @@ def formatar_moeda(v):
         return ""
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 # --------------------------------------------------
 # Carga e tratamento de dados
 # --------------------------------------------------
@@ -151,10 +140,7 @@ def carregar_dados_pca():
 
     return df
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 df_pca_base = carregar_dados_pca()
 
 # ------------------ Tabela 1: Planejamento ------------------
@@ -184,10 +170,7 @@ for c in cols_grupo0:
 
 grupo0 = df_pca_base[cols_grupo0].copy()
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 def gerar_grupo(indice: int) -> pd.DataFrame:
     suf = f".{indice}"
     col_processo = f"Processo{suf}"
@@ -227,10 +210,7 @@ def gerar_grupo(indice: int) -> pd.DataFrame:
     )
     return tabela_ren
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 grupos_dinamicos = [gerar_grupo(i) for i in range(1, 32)]
 tabela_processos_unida = pd.concat([grupo0] + grupos_dinamicos, ignore_index=True)
 
@@ -490,10 +470,7 @@ layout = html.Div(
                                 "overflowY": "auto",
                                 "maxHeight": "420px",
                                 "width": "100%",
-<<<<<<< HEAD
-=======
                                 "zIndex": 0,   # NOVO
->>>>>>> 5126a19 (Ajusta layout do painel)
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -561,10 +538,7 @@ layout = html.Div(
                                 "fontWeight": "bold",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-<<<<<<< HEAD
-=======
                                 "zIndex": 0,   # NOVO
->>>>>>> 5126a19 (Ajusta layout do painel)
                             },
                             style_data_conditional=[
                                 {
@@ -609,10 +583,7 @@ layout = html.Div(
                                 "overflowY": "auto",
                                 "maxHeight": "420px",
                                 "width": "100%",
-<<<<<<< HEAD
-=======
                                 "zIndex": 0,   # NOVO
->>>>>>> 5126a19 (Ajusta layout do painel)
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -668,10 +639,7 @@ layout = html.Div(
                                 "fontWeight": "bold",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-<<<<<<< HEAD
-=======
                                 "zIndex": 0,   # NOVO
->>>>>>> 5126a19 (Ajusta layout do painel)
                             },
                         ),
                     ],
@@ -898,10 +866,7 @@ def atualizar_tabelas_pca(
         card_saldo,
     )
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 @dash.callback(
     Output("filtro_ano_pca", "value"),
     Output("filtro_classe_texto_pca", "value"),
@@ -914,10 +879,7 @@ def atualizar_tabelas_pca(
 def limpar_filtros_pca(n):
     return "2026", None, None, None, None
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 5126a19 (Ajusta layout do painel)
 # --------------------------------------------------
 # PDF - estilos para PCA
 # --------------------------------------------------
@@ -936,7 +898,6 @@ simple_style_pca = ParagraphStyle(
     alignment=TA_CENTER,
 )
 
-<<<<<<< HEAD
 
 def wrap_pdf(text):
     return Paragraph(str(text), wrap_style_pca)
@@ -946,14 +907,6 @@ def simple_pdf(text):
     return Paragraph(str(text), simple_style_pca)
 
 
-=======
-def wrap_pdf(text):
-    return Paragraph(str(text), wrap_style_pca)
-
-def simple_pdf(text):
-    return Paragraph(str(text), simple_style_pca)
-
->>>>>>> 5126a19 (Ajusta layout do painel)
 # --------------------------------------------------
 # Callback: gerar PDF do PCA
 # --------------------------------------------------
@@ -1350,6 +1303,8 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
 
         tbl_proc.setStyle(TableStyle(style_list_proc))
         story.append(tbl_proc)
+
+    from dash import dcc
 
     doc.build(story)
     buffer.seek(0)
