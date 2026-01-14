@@ -684,6 +684,7 @@ def gerar_pdf_port_planej(n, dados_port):
     )
 
     texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Ministério da Educação</font></b><br/>"
         "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
         "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
     )

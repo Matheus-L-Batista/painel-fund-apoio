@@ -717,6 +717,7 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
     )
 
     texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Ministério da Educação</font></b><br/>"
         "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
         "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
     )
@@ -760,12 +761,11 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
     titulo_paragraph = Paragraph(
         titulo_texto,
         ParagraphStyle(
-            "titulo_consulta_pdm",
-            fontSize=10,
+            "titulo",
             alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
+            fontSize=10,
             leading=14,
+            textColor=colors.black,
         ),
     )
 
