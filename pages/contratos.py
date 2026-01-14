@@ -3,11 +3,17 @@ from dash import html, dcc, dash_table, Input, Output, State
 import pandas as pd
 from datetime import datetime
 
-
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    Image,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib import colors
@@ -34,7 +40,6 @@ URL_CONTRATOS = (
     "17nBhvSoCeK3hNgCj2S57q3pF2Uxj6iBpZDvCX481KcU/"
     "gviz/tq?tqx=out:csv&sheet=Grupo%20da%20Cont."
 )
-
 
 # nomes exatos das colunas originais no CSV
 COL_CONTRATO = "Contrato"
@@ -123,7 +128,9 @@ def filtrar_contratos(
     # Contrato (texto)
     if contrato_texto and str(contrato_texto).strip():
         termo = str(contrato_texto).strip().lower()
-        dff = dff[dff["Contrato"].astype(str).str.lower().str.contains(termo, na=False)]
+        dff = dff[
+            dff["Contrato"].astype(str).str.lower().str.contains(termo, na=False)
+        ]
 
     # Contrato (dropdown)
     if contrato_drop:
@@ -132,7 +139,8 @@ def filtrar_contratos(
     # Setor (texto)
     if setor_texto and str(setor_texto).strip():
         termo = str(setor_texto).strip().lower()
-        dff = dff[dff["Setor"].astype(str).str.lower().str.contains(termo, na=False)]
+        dff = dff["Setor"].astype(str).str.lower().str.contains(termo, na=False)
+        dff = df_contratos_base.loc[dff]
 
     # Setor (dropdown)
     if setor_drop:
@@ -179,6 +187,21 @@ dropdown_style = {
     "width": "100%",
     "marginBottom": "6px",
     "whiteSpace": "normal",
+}
+
+# --------------------------------------------------
+# Estilo dos botões (fundo azul, texto branco)
+# --------------------------------------------------
+botao_style = {
+    "backgroundColor": "#0b2b57",
+    "color": "white",
+    "padding": "8px 16px",
+    "border": "none",
+    "borderRadius": "4px",
+    "cursor": "pointer",
+    "fontSize": "12px",
+    "fontWeight": "bold",
+    "marginRight": "6px",
 }
 
 
@@ -373,13 +396,13 @@ layout = html.Div(
                                     "Limpar filtros",
                                     id="btn_limpar_filtros_contratos",
                                     n_clicks=0,
-                                    className="filtros-button",
+                                    style=botao_style,
                                 ),
                                 html.Button(
                                     "Baixar Relatório PDF",
                                     id="btn_download_relatorio_contratos",
                                     n_clicks=0,
-                                    className="filtros-button",
+                                    style=botao_style,
                                 ),
                                 dcc.Download(id="download_relatorio_contratos"),
                             ],
@@ -558,7 +581,7 @@ def atualizar_opcoes_filtros(
         contrato_texto,
         contrato_drop,
         setor_texto,
-       setor_drop,
+        setor_drop,
         grupo,
         empresa_texto,
         empresa_drop,
@@ -609,32 +632,36 @@ def limpar_filtros_contratos(n):
 
 
 # --------------------------------------------------
-# Callback: gerar PDF de contratos
+# Estilos para PDF
 # --------------------------------------------------
-wrap_style = ParagraphStyle(
-    name="wrap_contratos",
-    fontSize=7,
-    leading=8,
-    spaceAfter=2,
-    wordWrap="CJK",  # Quebra agressiva de palavras
-)
-
-simple_style = ParagraphStyle(
-    name="simple_contratos",
+wrap_style_data = ParagraphStyle(
+    name="wrap_contratos_data",
     fontSize=7,
     leading=8,
     alignment=TA_CENTER,
+    textColor=colors.black,
+)
+
+wrap_style_header = ParagraphStyle(
+    name="wrap_contratos_header",
+    fontSize=7,
+    leading=8,
+    alignment=TA_CENTER,
+    textColor=colors.white,
 )
 
 
-def wrap(text):
-    return Paragraph(str(text), wrap_style)
+def wrap_data(text):
+    return Paragraph(str(text), wrap_style_data)
 
 
-def simple(text):
-    return Paragraph(str(text), simple_style)
+def wrap_header(text):
+    return Paragraph(str(text), wrap_style_header)
 
 
+# --------------------------------------------------
+# Callback: gerar PDF de contratos
+# --------------------------------------------------
 @dash.callback(
     Output("download_relatorio_contratos", "data"),
     Input("btn_download_relatorio_contratos", "n_clicks"),
@@ -649,11 +676,12 @@ def gerar_pdf_contratos(n, dados_contratos):
 
     buffer = BytesIO()
     pagesize = landscape(A4)
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
-        rightMargin=0.15 * inch,  # Reduzido para ganhar espaço
-        leftMargin=0.15 * inch,   # Reduzido para ganhar espaço
+        rightMargin=0.3 * inch,
+        leftMargin=0.3 * inch,
         topMargin=1.3 * inch,
         bottomMargin=0.4 * inch,
     )
@@ -661,109 +689,101 @@ def gerar_pdf_contratos(n, dados_contratos):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data e hora (topo direito)
+    # Data / Hora
     tz_brasilia = timezone("America/Sao_Paulo")
-    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
-    data_top_table = Table(
-        [
+    data_hora = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+
+    story.append(
+        Table(
             [
-                Paragraph(
-                    data_hora_brasilia,
-                    ParagraphStyle(
-                        "data_topo_contratos",
-                        fontSize=9,
-                        alignment=TA_RIGHT,
-                        textColor="#333333",
-                    ),
-                )
-            ]
-        ],
-        colWidths=[pagesize[0] - 0.3 * inch],
-    )
-    data_top_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
+                [
+                    Paragraph(
+                        data_hora,
+                        ParagraphStyle(
+                            "data_topo_contratos",
+                            fontSize=9,
+                            alignment=TA_RIGHT,
+                            textColor="#333333",
+                        ),
+                    )
+                ]
+            ],
+            colWidths=[pagesize[0] - 0.6 * inch],
         )
     )
-    story.append(data_top_table)
-    story.append(Spacer(1, 0.1 * inch))
+    story.append(Spacer(1, 0.15 * inch))
 
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
+    # Cabeçalho: Logo | Texto | Logo
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png")
+        else ""
+    )
 
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png")
+        else ""
+    )
 
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.15 * inch,
-                        pagesize[0] / 2 - 0.15 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.3 * inch],
-                )
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
 
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título
-    titulo_texto = "RELATÓRIO DE CONTRATOS\n"
-    titulo_paragraph = Paragraph(
-        titulo_texto,
+    instituicao = Paragraph(
+        texto_instituicao,
         ParagraphStyle(
-            "titulo_contratos",
-            fontSize=10,
+            "instituicao",
             alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
-            leading=14,
+            leading=16,
         ),
     )
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.3 * inch],
+
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
     )
-    titulo_table.setStyle(
+
+    cabecalho.setStyle(
         TableStyle(
             [
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
-    story.append(titulo_table)
+
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # Título
+    titulo = Paragraph(
+        "RELATÓRIO DE CONTRATOS ATIVOS - UASG: 153030 - Campus Itajubá<br/>",
+        ParagraphStyle(
+            "titulo_contratos",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
+
+    story.append(
+        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
+    )
     story.append(Spacer(1, 0.15 * inch))
 
-    # Quantidade de registros
-    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
-    story.append(Spacer(1, 0.1 * inch))
-
-    # Preparação da tabela de dados
+    # Tabela
     cols = [
         "Contrato",
         "Setor",
@@ -775,97 +795,72 @@ def gerar_pdf_contratos(n, dados_contratos):
         "Término da Vigência",
         "Status da Vigência",
     ]
-    cols = [c for c in cols if c in df.columns]
+
+    for c in cols:
+        if c not in df.columns:
+            df[c] = ""
 
     df_pdf = df.copy()
 
-    header = cols
+    header = [wrap_header(c) for c in cols]
     table_data = [header]
 
+    status_values = df["Status da Vigência"].fillna("").tolist()
+
     for _, row in df_pdf[cols].iterrows():
-        linha = []
-        for c in cols:
-            valor = str(row[c]).strip()
+        table_data.append([wrap_data(row[c]) for c in cols])
 
-            if c in ["Objeto", "Empresa Contratada"]:
-                linha.append(wrap(valor))
-            elif c in [
-                "Início da Vigência",
-                "Término da Execução",
-                "Término da Vigência",
-                "Status da Vigência",
-            ]:
-                linha.append(simple(valor))
-            else:
-                linha.append(simple(valor))
-
-        table_data.append(linha)
-
-    # Larguras das colunas
+    page_width = pagesize[0] - 0.6 * inch
     col_widths = [
-        0.7 * inch,   # Contrato
-        0.75 * inch,  # Setor
-        0.85 * inch,  # Grupo
-        2.3 * inch,   # Objeto
-        1.9 * inch,   # Empresa Contratada
-        0.9 * inch,   # Início da Vigência
-        1.2 * inch,   # Término da Execução
-        1.2 * inch,   # Término da Vigência
-        1.2 * inch,   # Status da Vigência
+        0.8 * inch,   # Contrato
+        0.9 * inch,   # Setor
+        0.9 * inch,   # Grupo
+        2.2 * inch,   # Objeto
+        1.8 * inch,   # Empresa Contratada
+        1.0 * inch,   # Início da Vigência
+        1.1 * inch,   # Término da Execução
+        1.1 * inch,   # Término da Vigência
+        1.1 * inch,   # Status da Vigência
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
 
-    style_list = [
-        # Header
+    table_styles = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("FONTSIZE", (0, 0), (-1, 0), 7),
-        ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
-        # Grid
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        # Dados
-        ("ALIGN", (0, 1), (-1, -1), "LEFT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("FONTSIZE", (0, 1), (-1, -1), 7),
-        # Quebra de palavras
-        ("WORDWRAP", (0, 0), (-1, -1), True),
-        # Padding
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-        # Zebra (alternância branco/cinza)
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
     ]
 
     # Cores por status
-    status_col_idx = cols.index("Status da Vigência") if "Status da Vigência" in cols else -1
+    for i, status in enumerate(status_values, 1):
+        status_str = str(status).strip().lower()
+        if "vencido" in status_str:
+            table_styles.append(
+                ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#ffcccc"))
+            )
+            table_styles.append(
+                ("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#cc0000"))
+            )
+        elif "próximo do vencimento" in status_str:
+            table_styles.append(
+                ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#ffffcc"))
+            )
+            table_styles.append(
+                ("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#cc8800"))
+            )
 
-    if status_col_idx != -1:
-        for row_idx, row_data in enumerate(table_data[1:], start=1):
-            status_value = str(row_data[status_col_idx]).lower()
-
-            if "vencido" in status_value:
-                style_list.append(
-                    ("BACKGROUND", (0, row_idx), (-1, row_idx), colors.HexColor("#ffcccc"))
-                )
-                style_list.append(
-                    ("TEXTCOLOR", (0, row_idx), (-1, row_idx), colors.HexColor("#cc0000"))
-                )
-            elif "próximo do vencimento" in status_value:
-                style_list.append(
-                    ("BACKGROUND", (0, row_idx), (-1, row_idx), colors.HexColor("#ffffcc"))
-                )
-                style_list.append(
-                    ("TEXTCOLOR", (0, row_idx), (-1, row_idx), colors.HexColor("#cc8800"))
-                )
-
-    tbl.setStyle(TableStyle(style_list))
+    tbl.setStyle(TableStyle(table_styles))
     story.append(tbl)
+
     doc.build(story)
     buffer.seek(0)
 
-    from dash import dcc
-    return dcc.send_bytes(buffer.getvalue(), "contratos_paisagem.pdf")
+    return dcc.send_bytes(buffer.getvalue(), "relatorio_contratos.pdf")

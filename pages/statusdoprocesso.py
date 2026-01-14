@@ -153,16 +153,27 @@ def carregar_dados_status():
     return tabela_unida
 
 
-df_status = carregar_dados_status()
+df_status = carregar_dados_status()  # [file:24]
 
-# estilo dos dropdowns, sem CSS global
+# --------------------------------------------------
+# Estilos / layout (Dash)
+# --------------------------------------------------
 dropdown_style = {
     "color": "black",
     "width": "100%",
     "marginBottom": "6px",
     "whiteSpace": "normal",
     "position": "relative",
-    "zIndex": 9999,  # menus acima das tabelas
+    "zIndex": 9999,
+}
+
+botao_style = {
+    "backgroundColor": "#0b2b57",
+    "color": "white",
+    "border": "none",
+    "padding": "6px 12px",
+    "borderRadius": "4px",
+    "cursor": "pointer",
 }
 
 # Opções de processo (seleção) ordenadas pela linha mais recente (base global)
@@ -185,7 +196,6 @@ layout = html.Div(
         # Barra de filtros
         html.Div(
             id="barra_filtros_status",
-            # sem className, tudo inline
             style={
                 "position": "relative",
                 "zIndex": 10,
@@ -297,7 +307,7 @@ layout = html.Div(
                         ),
                     ],
                 ),
-                # Botões
+                # Botões (azul com texto branco)
                 html.Div(
                     style={"marginTop": "4px"},
                     children=[
@@ -305,14 +315,13 @@ layout = html.Div(
                             "Limpar filtros",
                             id="btn_limpar_filtros_status",
                             n_clicks=0,
-                            className="filtros-button",
+                            style=botao_style,
                         ),
                         html.Button(
                             "Baixar Relatório PDF",
                             id="btn_download_relatorio_status",
                             n_clicks=0,
-                            className="filtros-button",
-                            style={"marginLeft": "10px"},
+                            style={**botao_style, "marginLeft": "10px"},
                         ),
                         dcc.Download(id="download_relatorio_status"),
                     ],
@@ -337,19 +346,19 @@ layout = html.Div(
                             id="tabela_status_esquerda",
                             columns=[
                                 {"name": "Processo", "id": "Processo"},
-                                {"name": "Deptº", "id": "Requisitante"},
+                                {"name": "Requisitante", "id": "Requisitante"},
                                 {"name": "Objeto", "id": "Objeto"},
                                 {"name": "Modalidade", "id": "Modalidade"},
                                 {"name": "Linha", "id": "Linha"},
                             ],
                             data=[],
-                            fixed_rows={"headers": True},  # cabeçalho fixo
+                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
-                                "overflowY": "auto",  # rolagem vertical
+                                "overflowY": "auto",
                                 "maxHeight": "500px",
                                 "position": "relative",
-                                "zIndex": 1,  # abaixo da barra de filtros
+                                "zIndex": 1,
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -380,10 +389,10 @@ layout = html.Div(
                                 {"name": "Deptº", "id": "Deptº"},
                             ],
                             data=[],
-                            fixed_rows={"headers": True},  # cabeçalho fixo
+                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
-                                "overflowY": "auto",  # rolagem vertical
+                                "overflowY": "auto",
                                 "maxHeight": "500px",
                                 "position": "relative",
                                 "zIndex": 1,
@@ -395,23 +404,14 @@ layout = html.Div(
                                 "whiteSpace": "normal",
                             },
                             style_cell_conditional=[
-                                {
-                                    "if": {"column_id": "Data Mov"},
-                                    "width": "15%",
-                                },
-                                {
-                                    "if": {"column_id": "E/S"},
-                                    "width": "15%",
-                                },
+                                {"if": {"column_id": "Data Mov"}, "width": "15%"},
+                                {"if": {"column_id": "E/S"}, "width": "15%"},
                                 {
                                     "if": {"column_id": "Ação"},
                                     "width": "50%",
                                     "textAlign": "center",
                                 },
-                                {
-                                    "if": {"column_id": "Deptº"},
-                                    "width": "20%",
-                                },
+                                {"if": {"column_id": "Deptº"}, "width": "20%"},
                             ],
                             style_header={
                                 "fontWeight": "bold",
@@ -462,7 +462,6 @@ def limpar_linhas_invalidas(df, colunas_check=None):
             return False
         return True
 
-    # Mantém apenas linhas onde pelo menos uma coluna tem valor válido
     mask = df[colunas_check].apply(
         lambda row: any(eh_valido(v) for v in row.values), axis=1
     )
@@ -489,17 +488,10 @@ def atualizar_tabelas(
     objeto,
     modalidade,
 ):
-    """
-    Aplica todos os filtros em um único dataframe base (df_status),
-    usando uma máscara booleana combinada. A ordem em que o usuário
-    seleciona os filtros não importa.
-    """
     dff = df_status.copy()
 
-    # Máscara global
     mask = pd.Series(True, index=dff.index)
 
-    # Processo por digitação (contains, case-insensitive)
     if proc_texto and str(proc_texto).strip():
         termo = str(proc_texto).strip()
         mask &= (
@@ -508,15 +500,12 @@ def atualizar_tabelas(
             .str.contains(termo, case=False, na=False)
         )
 
-    # Processo por seleção (igualdade exata)
     if proc_select:
         mask &= dff["Processo"] == proc_select
 
-    # Requisitante (igualdade exata)
     if requisitante:
         mask &= dff["Requisitante"] == requisitante
 
-    # Objeto por digitação (contains, case-insensitive)
     if objeto and str(objeto).strip():
         termo_obj = str(objeto).strip()
         mask &= (
@@ -525,14 +514,11 @@ def atualizar_tabelas(
             .str.contains(termo_obj, case=False, na=False)
         )
 
-    # Modalidade (igualdade exata)
     if modalidade:
         mask &= dff["Modalidade"] == modalidade
 
-    # Aplica todos os filtros de uma vez
     dff = dff[mask].copy()
 
-    # Ordena por Linha (numérica, se possível)
     try:
         dff["Linha_ordenacao"] = pd.to_numeric(
             dff["Linha"], errors="coerce"
@@ -541,13 +527,10 @@ def atualizar_tabelas(
         dff["Linha_ordenacao"] = dff["Linha"]
     dff = dff.sort_values("Linha_ordenacao", ascending=False)
 
-    # ===== TABELA ESQUERDA =====
-    # Tabela esquerda: dados do processo (uma linha por processo)
+    # Esquerda
     mask_proc_valido = dff["Processo"].astype(str).str.strip().ne("")
     dff_esq = dff[mask_proc_valido].copy()
     dff_esq = dff_esq.drop_duplicates(subset=["Processo"], keep="first")
-
-    # Limpa linhas inválidas
     dff_esq = limpar_linhas_invalidas(
         dff_esq,
         colunas_check=["Processo", "Requisitante", "Objeto", "Modalidade"],
@@ -557,13 +540,11 @@ def atualizar_tabelas(
         ["Processo", "Requisitante", "Objeto", "Modalidade", "Linha"]
     ].to_dict("records")
 
-    # ===== TABELA DIREITA =====
+    # Direita
     dff_dir = dff.copy()
-
     for c in ["Data Mov", "E/S", "Ação", "Deptº"]:
         dff_dir[c] = dff_dir[c].astype(str).str.strip()
 
-    # Remove linhas onde Ação é inválida
     mask_acao_valida = (
         dff_dir["Ação"].ne("")
         & dff_dir["Ação"].str.lower().ne("none")
@@ -577,8 +558,6 @@ def atualizar_tabelas(
     dff_dir["Data Mov_dt"] = pd.to_datetime(
         dff_dir["Data Mov"], errors="coerce"
     )
-
-    # ordem_acao: dá prioridade para "FIM DCC" aparecer por último no mesmo dia
     dff_dir["ordem_acao"] = (
         dff_dir["Ação"].astype(str).str.strip() != "FIM DCC"
     ).astype(int)
@@ -587,12 +566,10 @@ def atualizar_tabelas(
         ascending=[False, True],
         na_position="last",
     )
-
     dff_dir["Data Mov"] = (
         dff_dir["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
     )
 
-    # Limpa linhas inválidas nas colunas principais
     dff_dir = limpar_linhas_invalidas(
         dff_dir,
         colunas_check=["Data Mov", "E/S", "Ação", "Deptº"],
@@ -613,11 +590,10 @@ def atualizar_tabelas(
         "records"
     )
 
-    # store_dados_status será usado para o PDF
     return dados_esquerda, dados_direita, dff_dir.to_dict("records")
 
 # --------------------------------------------------
-# Callback: filtros em cascata (ordem-invariante)
+# Callback: filtros em cascata
 # --------------------------------------------------
 @dash.callback(
     Output("filtro_requisitante", "options"),
@@ -636,16 +612,9 @@ def atualizar_opcoes_filtros_status(
     objeto,
     modalidade,
 ):
-    """
-    Atualiza as opções dos dropdowns (Requisitante, Modalidade, Processo)
-    em cascata, usando um único filtro global (ordem dos filtros não importa).
-    """
     dff = df_status.copy()
-
-    # Máscara global
     mask = pd.Series(True, index=dff.index)
 
-    # Processo por digitação (contains)
     if proc_texto and str(proc_texto).strip():
         termo = str(proc_texto).strip()
         mask &= (
@@ -654,15 +623,12 @@ def atualizar_opcoes_filtros_status(
             .str.contains(termo, case=False, na=False)
         )
 
-    # Processo por seleção
     if proc_select:
         mask &= dff["Processo"] == proc_select
 
-    # Requisitante
     if requisitante:
         mask &= dff["Requisitante"] == requisitante
 
-    # Objeto (contains)
     if objeto and str(objeto).strip():
         termo_obj = str(objeto).strip()
         mask &= (
@@ -671,16 +637,12 @@ def atualizar_opcoes_filtros_status(
             .str.contains(termo_obj, case=False, na=False)
         )
 
-    # Modalidade
     if modalidade:
         mask &= dff["Modalidade"] == modalidade
 
     dff = dff[mask].copy()
-
-    # Limpa antes de gerar options
     dff = limpar_linhas_invalidas(dff)
 
-    # Opções de Requisitante
     op_requisitante = [
         {"label": r, "value": r}
         for r in sorted(dff["Requisitante"].dropna().unique())
@@ -688,7 +650,6 @@ def atualizar_opcoes_filtros_status(
         not in ("", "nan", "none", "", "nat", "<na>")
     ]
 
-    # Opções de Modalidade
     op_modalidade = [
         {"label": m, "value": m}
         for m in sorted(dff["Modalidade"].dropna().unique())
@@ -696,20 +657,16 @@ def atualizar_opcoes_filtros_status(
         not in ("", "nan", "none", "", "nat", "<na>")
     ]
 
-    # Opções de Processo (seleção) restritas ao subconjunto filtrado
     df_proc_opts_local = dff[["Processo", "Linha"]].dropna(subset=["Processo"])
     df_proc_opts_local["Linha_num"] = pd.to_numeric(
         df_proc_opts_local["Linha"], errors="coerce"
     )
-
     df_proc_opts_local = df_proc_opts_local.sort_values(
         "Linha_num", ascending=False
     )
-
     df_proc_opts_local = df_proc_opts_local.drop_duplicates(
         subset=["Processo"], keep="first"
     )
-
     op_processo = [
         {"label": row["Processo"], "value": row["Processo"]}
         for _, row in df_proc_opts_local.iterrows()
@@ -732,14 +689,12 @@ def atualizar_opcoes_filtros_status(
     prevent_initial_call=True,
 )
 def limpar_filtros_status(n):
-    """
-    Limpa todos os filtros do painel de status do processo.
-    """
     return None, None, None, None, None
 
-# --------------------------------------------------
+# ========================================
+# BLOCO PDF (ReportLab) – STATUS
+# ========================================
 # Estilos de texto para PDF
-# --------------------------------------------------
 wrap_style_status = ParagraphStyle(
     name="wrap_status",
     fontSize=7,
@@ -759,8 +714,298 @@ def wrap_pdf(text):
 def simple_pdf(text):
     return Paragraph(str(text), simple_style_status)
 
+# Cabeçalho padrão – Status
+def adicionar_cabecalho_status(story, df_esq, df_dir, styles):
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png") else ""
+    )
+
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png") else ""
+    )
+
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
+
+    instituicao = Paragraph(
+        texto_instituicao,
+        ParagraphStyle(
+            "instituicao",
+            alignment=TA_CENTER,
+            leading=16,
+        ),
+    )
+
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[1.4 * inch, 4.2 * inch, 1.4 * inch],
+    )
+    cabecalho.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    titulo = Paragraph(
+        "RELATÓRIO DE STATUS DO PROCESSO<br/>",
+        ParagraphStyle(
+            "titulo_status",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
+
+    total_esq = len(df_esq) if not df_esq.empty else 0
+    total_dir = len(df_dir) if not df_dir.empty else 0
+    total_geral = total_esq + total_dir
+
+    story.append(
+        Paragraph(f"Total de registros: {total_geral}", styles["Normal"])
+    )
+    story.append(Spacer(1, 0.15 * inch))
+
+# Tabela 1: Dados do Processo
+def criar_tabela_dados_processo(story, df_esq, styles):
+    if df_esq.empty:
+        return
+
+    story.append(
+        Paragraph(
+            "DADOS DO PROCESSO",
+            ParagraphStyle(
+                "subtitulo_status_esq",
+                fontSize=9,
+                alignment=TA_LEFT,
+                textColor="#0b2b57",
+                fontName="Helvetica-Bold",
+                spaceAfter=6,
+            ),
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"Total de registros: {len(df_esq)}",
+            styles["Normal"],
+        )
+    )
+    story.append(Spacer(1, 0.08 * inch))
+
+    cols_esq = [
+        "Processo",
+        "Requisitante",
+        "Objeto",
+        "Modalidade",
+        "Linha",
+    ]
+    cols_esq = [c for c in cols_esq if c in df_esq.columns]
+    df_esq_filtered = df_esq[cols_esq].copy()
+
+    header_esq = cols_esq
+    table_data_esq = [header_esq]
+
+    for _, row in df_esq_filtered.iterrows():
+        linha = []
+        for c in cols_esq:
+            valor = str(row[c]).strip() if pd.notna(row[c]) else ""
+            if c in ["Objeto"]:
+                linha.append(wrap_pdf(valor))
+            else:
+                linha.append(simple_pdf(valor))
+        table_data_esq.append(linha)
+
+    col_widths_esq = [
+        2.0 * inch,
+        1.2 * inch,
+        2.5 * inch,
+        1.2 * inch,
+        0.6 * inch,
+    ]
+    col_widths_esq = col_widths_esq[: len(cols_esq)]
+    tbl_esq = Table(
+        table_data_esq,
+        colWidths=col_widths_esq,
+        repeatRows=1,
+    )
+
+    style_list_esq = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("FONTSIZE", (0, 0), (-1, 0), 7),
+        ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.5, colors.HexColor("#0b2b57")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 1), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTSIZE", (0, 1), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        (
+            "ROWBACKGROUNDS",
+            (0, 1),
+            (-1, -1),
+            [colors.white, colors.HexColor("#f0f0f0")],
+        ),
+        ("WORDWRAP", (0, 0), (-1, -1), True),
+    ]
+
+    tbl_esq.setStyle(TableStyle(style_list_esq))
+    story.append(tbl_esq)
+    story.append(Spacer(1, 0.2 * inch))
+
+# Tabela 2: Movimentações
+def criar_tabela_movimentacoes(story, df_dir, styles):
+    if df_dir.empty:
+        return
+
+    story.append(
+        Paragraph(
+            "MOVIMENTAÇÕES",
+            ParagraphStyle(
+                "subtitulo_status_dir",
+                fontSize=9,
+                alignment=TA_LEFT,
+                textColor="#0b2b57",
+                fontName="Helvetica-Bold",
+                spaceAfter=6,
+            ),
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"Total de registros: {len(df_dir)}",
+            styles["Normal"],
+        )
+    )
+    story.append(Spacer(1, 0.08 * inch))
+
+    cols_dir = ["Data Mov", "E/S", "Ação", "Deptº"]
+    cols_dir = [c for c in cols_dir if c in df_dir.columns]
+    df_dir_copy = df_dir.copy()
+
+    df_dir_copy["Data Mov_dt"] = pd.to_datetime(
+        df_dir_copy["Data Mov"], errors="coerce"
+    )
+
+    df_dir_copy["ordem_acao"] = (
+        df_dir_copy["Ação"].astype(str).str.strip() != "FIM DCC"
+    ).astype(int)
+    df_dir_copy = df_dir_copy.sort_values(
+        by=["Data Mov_dt", "ordem_acao"],
+        ascending=[False, True],
+        na_position="last",
+    )
+
+    df_dir_copy["Data Mov"] = (
+        df_dir_copy["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
+    )
+
+    df_dir_copy["Ação"] = df_dir_copy["Ação"].astype(str).str.strip()
+    df_dir_copy = df_dir_copy[
+        (df_dir_copy["Ação"] != "")
+        & (df_dir_copy["Ação"].str.lower() != "none")
+        & (df_dir_copy["Ação"].str.lower() != "nan")
+        & (df_dir_copy["Ação"].str.lower() != "")
+        & (df_dir_copy["Ação"].str.lower() != "nat")
+        & (df_dir_copy["Ação"].str.lower() != "<na>")
+    ]
+
+    cols_check = ["Data Mov", "E/S", "Ação", "Deptº"]
+    df_dir_copy = df_dir_copy[
+        df_dir_copy[cols_check].apply(
+            lambda row: any(
+                (v_str := str(v).strip().lower())
+                not in ("", "none", "nan", "", "nat", "<na>")
+                for v in row.values
+            ),
+            axis=1,
+        )
+    ]
+
+    df_dir_filtered = df_dir_copy[cols_dir].copy()
+
+    header_dir = cols_dir
+    table_data_dir = [header_dir]
+
+    for _, row in df_dir_filtered.iterrows():
+        linha = []
+        for c in cols_dir:
+            valor = str(row[c]).strip() if pd.notna(row[c]) else ""
+            if c in ["Ação"]:
+                linha.append(wrap_pdf(valor))
+            else:
+                linha.append(simple_pdf(valor))
+        table_data_dir.append(linha)
+
+    col_widths_dir = [
+        1.0 * inch,
+        1.0 * inch,
+        3.0 * inch,
+        1.0 * inch,
+    ]
+    col_widths_dir = col_widths_dir[: len(cols_dir)]
+    tbl_dir = Table(
+        table_data_dir,
+        colWidths=col_widths_dir,
+        repeatRows=1,
+    )
+
+    style_list_dir = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("FONTSIZE", (0, 0), (-1, 0), 7),
+        ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.5, colors.HexColor("#0b2b57")),
+        ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#ff9800")),
+        ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
+        ("FONTWEIGHT", (0, 1), (-1, 1), "bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 1), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTSIZE", (0, 1), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        (
+            "ROWBACKGROUNDS",
+            (0, 2),
+            (-1, -1),
+            [colors.white, colors.HexColor("#f0f0f0")],
+        ),
+        ("WORDWRAP", (0, 0), (-1, -1), True),
+    ]
+
+    tbl_dir.setStyle(TableStyle(style_list_dir))
+    story.append(tbl_dir)
+
 # --------------------------------------------------
-# Callback: gerar relatório PDF
+# CALLBACK: GERAR PDF DE STATUS
 # --------------------------------------------------
 @dash.callback(
     Output("download_relatorio_status", "data"),
@@ -769,33 +1014,23 @@ def simple_pdf(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_status(n, dados_status):
-    """
-    Gera relatório em PDF com duas tabelas:
-    - Dados do Processo (uma linha por processo)
-    - Movimentações (todas as movimentações filtradas)
-    """
     if not n or not dados_status:
         return None
 
     df_todos = pd.DataFrame(dados_status)
 
-    # ===== ESQUERDA: um registro por processo =====
     df_esq = df_todos.copy()
     df_esq = df_esq.drop_duplicates(subset=["Processo"], keep="first")
     df_esq["Processo"] = df_esq["Processo"].astype(str).str.strip()
     df_esq = df_esq[df_esq["Processo"] != ""]
     df_esq = df_esq[df_esq["Processo"].str.lower() != "nan"]
     df_esq = df_esq[df_esq["Processo"].str.lower() != ""]
-
-    # Limpa da tabela esquerda
     df_esq = limpar_linhas_invalidas(
         df_esq,
         colunas_check=["Processo", "Requisitante", "Objeto", "Modalidade"],
     )
 
-    # ===== DIREITA: todas as movimentações válidas =====
     df_dir = df_todos.copy()
-
     if "Ação" in df_dir.columns:
         df_dir["Ação"] = df_dir["Ação"].astype(str).str.strip()
         df_dir = df_dir[df_dir["Ação"] != ""]
@@ -805,7 +1040,6 @@ def gerar_pdf_status(n, dados_status):
         df_dir = df_dir[df_dir["Ação"].str.lower() != "<na>"]
         df_dir = df_dir[df_dir["Ação"].notna()]
 
-    # Limpa da tabela direita
     df_dir = limpar_linhas_invalidas(
         df_dir,
         colunas_check=["Data Mov", "E/S", "Ação", "Deptº"],
@@ -816,301 +1050,31 @@ def gerar_pdf_status(n, dados_status):
 
     buffer = BytesIO()
     pagesize = landscape(A4)
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
         rightMargin=0.3 * inch,
         leftMargin=0.3 * inch,
-        topMargin=0.5 * inch,
+        topMargin=1.3 * inch,
         bottomMargin=0.4 * inch,
     )
 
     styles = getSampleStyleSheet()
     story = []
 
-    # Data/hora no topo
-    tz_br = timezone("America/Sao_Paulo")
-    data_hora = datetime.now(tz_br).strftime("%d/%m/%Y %H:%M:%S")
-    header_style = ParagraphStyle(
-        "header_status",
-        fontSize=8,
-        alignment=TA_RIGHT,
-        textColor=colors.grey,
-    )
+    adicionar_cabecalho_status(story, df_esq, df_dir, styles)
 
-    story.append(Paragraph(data_hora, header_style))
-    story.append(Spacer(1, 0.1 * inch))
-
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
-
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
-
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.15 * inch,
-                        pagesize[0] / 2 - 0.15 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.3 * inch],
-                )
-
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título principal
-    titulo = Paragraph(
-        "RELATÓRIO DE STATUS DO PROCESSO",
-        ParagraphStyle(
-            "titulo_status",
-            fontSize=14,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor("#0b2b57"),
-            fontName="Helvetica-Bold",
-        ),
-    )
-
-    story.append(titulo)
-    story.append(Spacer(1, 0.15 * inch))
-
-    # ===== TABELA 1: DADOS DO PROCESSO =====
     if not df_esq.empty:
-        story.append(
-            Paragraph(
-                "DADOS DO PROCESSO",
-                ParagraphStyle(
-                    "subtitulo_status_esq",
-                    fontSize=9,
-                    alignment=TA_LEFT,
-                    textColor="#0b2b57",
-                    fontName="Helvetica-Bold",
-                    spaceAfter=6,
-                ),
-            )
-        )
+        criar_tabela_dados_processo(story, df_esq, styles)
 
-        story.append(
-            Paragraph(
-                f"Total de registros: {len(df_esq)}",
-                styles["Normal"],
-            )
-        )
-        story.append(Spacer(1, 0.08 * inch))
-
-        cols_esq = [
-            "Processo",
-            "Requisitante",
-            "Objeto",
-            "Modalidade",
-            "Linha",
-        ]
-        cols_esq = [c for c in cols_esq if c in df_esq.columns]
-        df_esq_filtered = df_esq[cols_esq].copy()
-
-        header_esq = cols_esq
-        table_data_esq = [header_esq]
-
-        for _, row in df_esq_filtered.iterrows():
-            linha = []
-            for c in cols_esq:
-                valor = str(row[c]).strip() if pd.notna(row[c]) else ""
-                if c in ["Objeto"]:
-                    linha.append(wrap_pdf(valor))
-                else:
-                    linha.append(simple_pdf(valor))
-            table_data_esq.append(linha)
-
-        col_widths_esq = [
-            2.0 * inch,
-            1.2 * inch,
-            2.5 * inch,
-            1.2 * inch,
-            0.6 * inch,
-        ]
-        col_widths_esq = col_widths_esq[: len(cols_esq)]
-        tbl_esq = Table(
-            table_data_esq,
-            colWidths=col_widths_esq,
-            repeatRows=1,
-        )
-
-        style_list_esq = [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("FONTSIZE", (0, 0), (-1, 0), 7),
-            ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ALIGN", (0, 1), (-1, -1), "LEFT"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTSIZE", (0, 1), (-1, -1), 7),
-            ("WORDWRAP", (0, 0), (-1, -1), True),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.HexColor("#f0f0f0")],
-            ),
-        ]
-
-        tbl_esq.setStyle(TableStyle(style_list_esq))
-        story.append(tbl_esq)
-        story.append(Spacer(1, 0.2 * inch))
-
-    # ===== TABELA 2: MOVIMENTAÇÕES =====
     if not df_dir.empty:
-        story.append(
-            Paragraph(
-                "MOVIMENTAÇÕES",
-                ParagraphStyle(
-                    "subtitulo_status_dir",
-                    fontSize=9,
-                    alignment=TA_LEFT,
-                    textColor="#0b2b57",
-                    fontName="Helvetica-Bold",
-                    spaceAfter=6,
-                ),
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Total de registros: {len(df_dir)}",
-                styles["Normal"],
-            )
-        )
-        story.append(Spacer(1, 0.08 * inch))
-
-        cols_dir = ["Data Mov", "E/S", "Ação", "Deptº"]
-        cols_dir = [c for c in cols_dir if c in df_dir.columns]
-        df_dir_copy = df_dir.copy()
-
-        df_dir_copy["Data Mov_dt"] = pd.to_datetime(
-            df_dir_copy["Data Mov"], errors="coerce"
-        )
-
-        df_dir_copy["ordem_acao"] = (
-            df_dir_copy["Ação"].astype(str).str.strip() != "FIM DCC"
-        ).astype(int)
-        df_dir_copy = df_dir_copy.sort_values(
-            by=["Data Mov_dt", "ordem_acao"],
-            ascending=[False, True],
-            na_position="last",
-        )
-
-        df_dir_copy["Data Mov"] = (
-            df_dir_copy["Data Mov_dt"].dt.strftime("%d/%m/%Y").fillna("")
-        )
-
-        df_dir_copy["Ação"] = df_dir_copy["Ação"].astype(str).str.strip()
-        df_dir_copy = df_dir_copy[
-            (df_dir_copy["Ação"] != "")
-            & (df_dir_copy["Ação"].str.lower() != "none")
-            & (df_dir_copy["Ação"].str.lower() != "nan")
-            & (df_dir_copy["Ação"].str.lower() != "")
-            & (df_dir_copy["Ação"].str.lower() != "nat")
-            & (df_dir_copy["Ação"].str.lower() != "<na>")
-        ]
-
-        cols_check = ["Data Mov", "E/S", "Ação", "Deptº"]
-        df_dir_copy = df_dir_copy[
-            df_dir_copy[cols_check].apply(
-                lambda row: any(
-                    (v_str := str(v).strip().lower())
-                    not in ("", "none", "nan", "", "nat", "<na>")
-                    for v in row.values
-                ),
-                axis=1,
-            )
-        ]
-
-        df_dir_filtered = df_dir_copy[cols_dir].copy()
-
-        header_dir = cols_dir
-        table_data_dir = [header_dir]
-
-        for _, row in df_dir_filtered.iterrows():
-            linha = []
-            for c in cols_dir:
-                valor = str(row[c]).strip() if pd.notna(row[c]) else ""
-                if c in ["Ação"]:
-                    linha.append(wrap_pdf(valor))
-                else:
-                    linha.append(simple_pdf(valor))
-            table_data_dir.append(linha)
-
-        col_widths_dir = [
-            1.0 * inch,
-            1.0 * inch,
-            3.0 * inch,
-            1.0 * inch,
-        ]
-        col_widths_dir = col_widths_dir[: len(cols_dir)]
-        tbl_dir = Table(
-            table_data_dir,
-            colWidths=col_widths_dir,
-            repeatRows=1,
-        )
-
-        style_list_dir = [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("FONTSIZE", (0, 0), (-1, 0), 7),
-            ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
-            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#ff9800")),
-            ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
-            ("FONTWEIGHT", (0, 1), (-1, 1), "bold"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ALIGN", (0, 1), (-1, -1), "LEFT"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTSIZE", (0, 1), (-1, -1), 7),
-            ("WORDWRAP", (0, 0), (-1, -1), True),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-            (
-                "ROWBACKGROUNDS",
-                (0, 2),
-                (-1, -1),
-                [colors.white, colors.HexColor("#f0f0f0")],
-            ),
-        ]
-
-        tbl_dir.setStyle(TableStyle(style_list_dir))
-        story.append(tbl_dir)
+        criar_tabela_movimentacoes(story, df_dir, styles)
 
     doc.build(story)
     buffer.seek(0)
-    from dash import dcc
 
-    return dcc.send_bytes(buffer.getvalue(), "status_processos_paisagem.pdf")
+    return dcc.send_bytes(
+        buffer.getvalue(),
+        f"status_processos_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf",
+    )

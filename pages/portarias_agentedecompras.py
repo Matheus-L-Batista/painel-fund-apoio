@@ -6,9 +6,21 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    Image,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+
+from datetime import datetime
+from pytz import timezone
+import os
+
 
 # --------------------------------------------------
 # Registro da página
@@ -19,6 +31,7 @@ dash.register_page(
     name="portarias_agentedecompras",
     title="portarias_agentedecompras",
 )
+
 
 # --------------------------------------------------
 # URL da planilha de Portarias
@@ -33,6 +46,7 @@ URL_PORTARIAS = (
 NOME_COL_LINK_ORIGINAL = (
     "Link do documento\nAgentes de Compras e\nContratos tipo empenho"
 )
+
 
 # --------------------------------------------------
 # Carga e tratamento dos dados
@@ -104,6 +118,22 @@ dropdown_style = {
     "marginBottom": "6px",
     "whiteSpace": "normal",
 }
+
+# --------------------------------------------------
+# Estilo unificado dos botões (fundo azul, texto branco)
+# --------------------------------------------------
+botao_style = {
+    "backgroundColor": "#0b2b57",
+    "color": "white",
+    "padding": "8px 16px",
+    "border": "none",
+    "borderRadius": "4px",
+    "cursor": "pointer",
+    "fontSize": "12px",
+    "fontWeight": "bold",
+    "marginRight": "6px",
+}
+
 
 # --------------------------------------------------
 # Layout
@@ -217,14 +247,13 @@ layout = html.Div(
                             "Limpar filtros",
                             id="btn_limpar_filtros_port",
                             n_clicks=0,
-                            className="filtros-button",
+                            style=botao_style,
                         ),
                         html.Button(
                             "Baixar Relatório PDF",
                             id="btn_download_relatorio_port",
                             n_clicks=0,
-                            className="filtros-button",
-                            style={"marginLeft": "10px"},
+                            style=botao_style,
                         ),
                         dcc.Download(id="download_relatorio_port"),
                     ],
@@ -334,6 +363,7 @@ layout = html.Div(
     ]
 )
 
+
 # --------------------------------------------------
 # Callback: aplicar filtros + link clicável (máscara única)
 # --------------------------------------------------
@@ -429,6 +459,7 @@ def atualizar_tabela_portarias(
     ]
 
     return dff_display[cols_tabela].to_dict("records"), dff.to_dict("records")
+
 
 # --------------------------------------------------
 # Callback: filtros em cascata (ordem-invariante)
@@ -530,6 +561,7 @@ def atualizar_opcoes_filtros_portarias(
 
     return op_setor, op_servidor, op_tipo
 
+
 # --------------------------------------------------
 # Callback: limpar filtros
 # --------------------------------------------------
@@ -545,25 +577,39 @@ def atualizar_opcoes_filtros_portarias(
 def limpar_filtros_port(n):
     return None, None, None, None, "TODOS"
 
-# --------------------------------------------------
-# Callback: gerar PDF
-# --------------------------------------------------
-from datetime import datetime
-from pytz import timezone
-from reportlab.platypus import Image
-import os
 
-wrap_style = ParagraphStyle(
-    name="wrap",
-    fontSize=8,
-    leading=10,
-    spaceAfter=4,
+# --------------------------------------------------
+# Estilos para o PDF (portarias)
+# --------------------------------------------------
+wrap_style_data = ParagraphStyle(
+    name="wrap_portarias_data",
+    fontSize=7,
+    leading=8,
+    spaceAfter=2,
+    wordWrap="CJK",
     alignment=TA_CENTER,
 )
 
-def wrap(text):
-    return Paragraph(str(text), wrap_style)
+wrap_style_header = ParagraphStyle(
+    name="wrap_portarias_header",
+    fontSize=7,
+    leading=8,
+    alignment=TA_CENTER,
+    textColor=colors.white,
+)
 
+
+def wrap_data(text):
+    return Paragraph(str(text), wrap_style_data)
+
+
+def wrap_header(text):
+    return Paragraph(str(text), wrap_style_header)
+
+
+# --------------------------------------------------
+# Callback: gerar PDF de portarias
+# --------------------------------------------------
 @dash.callback(
     Output("download_relatorio_port", "data"),
     Input("btn_download_relatorio_port", "n_clicks"),
@@ -590,174 +636,158 @@ def gerar_pdf_port(n, dados_port):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data e hora
+    # --------------------------------------------------
+    # Data / Hora (topo direito)
+    # --------------------------------------------------
     tz_brasilia = timezone("America/Sao_Paulo")
-    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+    data_hora = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
 
-    data_top_table = Table(
-        [
-            [
-                Paragraph(
-                    data_hora_brasilia,
-                    ParagraphStyle(
-                        "data_topo",
-                        fontSize=9,
-                        alignment=TA_RIGHT,
-                        textColor="#333333",
-                    ),
-                )
-            ]
-        ],
-        colWidths=[pagesize[0] - 0.6 * inch],
-    )
-
-    data_top_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
+    story.append(
+        Table(
+            [[Paragraph(
+                data_hora,
+                ParagraphStyle(
+                    "data_topo",
+                    fontSize=9,
+                    alignment=TA_RIGHT,
+                    textColor="#333333",
+                ),
+            )]],
+            colWidths=[pagesize[0] - 0.6 * inch],
         )
     )
+    story.append(Spacer(1, 0.15 * inch))
 
-    story.append(data_top_table)
-    story.append(Spacer(1, 0.1 * inch))
-
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
-
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
-
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.3 * inch,
-                        pagesize[0] / 2 - 0.3 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.6 * inch],
-                )
-
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título
-    titulo_texto = (
-        "RELATÓRIO DE PORTARIAS<br/>"
-        "AGENTES DE COMPRAS E CONTRATOS TIPO EMPENHO<br/>"
-        "Campus Itajubá"
+    # --------------------------------------------------
+    # Cabeçalho: Logo esq | Instituição | Logo dir
+    # --------------------------------------------------
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png") else ""
     )
 
-    titulo_paragraph = Paragraph(
-        titulo_texto,
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png") else ""
+    )
+
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
+
+    instituicao = Paragraph(
+        texto_instituicao,
         ParagraphStyle(
-            "titulo_portarias",
-            fontSize=10,
+            "instituicao",
             alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
-            leading=14,
+            leading=16,
         ),
     )
 
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.6 * inch],
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
     )
 
-    titulo_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ]
-        )
+    cabecalho.setStyle(
+        TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ])
     )
 
-    story.append(titulo_table)
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # --------------------------------------------------
+    # Título
+    # --------------------------------------------------
+    titulo = Paragraph(
+        "Portarias vigentes de Agentes de Compras e Contratos tipo empenho<br/>",
+        ParagraphStyle(
+            "titulo",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
+
+    story.append(
+        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
+    )
     story.append(Spacer(1, 0.15 * inch))
 
-    # Quantidade de registros
-    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
-    story.append(Spacer(1, 0.1 * inch))
-
-    # Colunas
+    # --------------------------------------------------
+    # Preparação da tabela de dados
+    # --------------------------------------------------
     cols = [
         "Data",
         "N°/ANO da Portaria",
         "Setor de Origem",
-        "TIPO",
         "Servidores",
+        "TIPO",
     ]
+
+    for c in cols:
+        if c not in df.columns:
+            df[c] = ""
 
     df_pdf = df.copy()
 
-    header = cols
+    header = [wrap_header(c) for c in cols]
     table_data = [header]
+
     for _, row in df_pdf[cols].iterrows():
-        table_data.append([wrap(row[c]) for c in cols])
+        table_data.append([wrap_data(row[c]) for c in cols])
 
-    page_width = pagesize[0] - 0.6 * inch
-
+    # --------------------------------------------------
+    # Larguras das colunas (ajustadas para landscape)
+    # --------------------------------------------------
     col_widths = [
-        0.8 * inch,        # Data
-        0.9 * inch,        # N°/ANO da Portaria
-        1.0 * inch,        # Setor de Origem
-        1.2 * inch,        # TIPO
-        page_width - (0.8 + 0.9 + 1.0 + 1.2) * inch,  # Servidores
+        0.9 * inch,   # Data
+        1.2 * inch,   # N°/ANO da Portaria
+        1.6 * inch,   # Setor de Origem
+        3.0 * inch,   # Servidores
+        1.4 * inch,   # TIPO
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
 
     table_styles = [
+        # Header
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("WORDWRAP", (0, 0), (-1, -1), True),
         ("FONTSIZE", (0, 0), (-1, -1), 7),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        # Padding
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        # Zebra
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
     ]
 
-    for row_idx in range(len(table_data)):
-        table_styles.append(
-            ("ALIGN", (4, row_idx), (4, row_idx), "LEFT")
-        )
-
     tbl.setStyle(TableStyle(table_styles))
-
     story.append(tbl)
 
     doc.build(story)
     buffer.seek(0)
 
-    from dash import dcc
-
-    return dcc.send_bytes(buffer.getvalue(), "portarias_.pdf")
+    return dcc.send_bytes(
+        buffer.getvalue(),
+        "relatorio_portarias.pdf",
+    )

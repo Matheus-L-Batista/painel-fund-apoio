@@ -1,5 +1,3 @@
-#1. Importações, registro da página e constantes
-
 import dash
 from dash import html, dcc, Input, Output, State, dash_table
 from dash.exceptions import PreventUpdate
@@ -29,6 +27,7 @@ from datetime import datetime
 from pytz import timezone
 import os
 
+
 # --------------------------------------------------
 # Registro da página
 # --------------------------------------------------
@@ -46,11 +45,10 @@ URL_PROCESSOS = (
     "gviz/tq?tqx=out:csv&sheet=BI%20-%20Itajub%C3%A1"
 )
 
-#2. Carga de dados e utilitários
 
-# ----------------------------------------
-# Carga e tratamento dos dados
-# ----------------------------------------
+# --------------------------------------------------
+# Carga de dados e utilitários
+# --------------------------------------------------
 def carregar_dados_processos():
     """
     Lê a planilha de processos de compras e faz:
@@ -150,6 +148,21 @@ dropdown_style = {
     "whiteSpace": "normal",
 }
 
+# --------------------------------------------------
+# Estilo unificado dos botões
+# --------------------------------------------------
+botao_style = {
+    "backgroundColor": "#0b2b57",
+    "color": "white",
+    "padding": "8px 16px",
+    "border": "none",
+    "borderRadius": "4px",
+    "cursor": "pointer",
+    "fontSize": "12px",
+    "fontWeight": "bold",
+    "marginRight": "6px",
+}
+
 
 def formatar_moeda(v):
     """
@@ -161,6 +174,7 @@ def formatar_moeda(v):
         .replace(".", ",")
         .replace("X", ".")
     )
+
 
 # Lista fixa de meses em ordem cronológica
 MESES_ORDENADOS = [
@@ -189,11 +203,10 @@ options_mes_finalizacao = [
     if m in meses_disponiveis
 ]
 
-#3. Layout da página
 
-# ----------------------------------------
+# --------------------------------------------------
 # Layout
-# ----------------------------------------
+# --------------------------------------------------
 layout = html.Div(
     children=[
         # Barra de filtros
@@ -402,14 +415,13 @@ layout = html.Div(
                             "Limpar Filtros",
                             id="btn_limpar_filtros_proc",
                             n_clicks=0,
-                            className="filtros-button",
+                            style=botao_style,
                         ),
                         html.Button(
                             "Baixar Relatório PDF",
                             id="btn_download_relatorio_proc",
                             n_clicks=0,
-                            className="filtros-button",
-                            style={"marginLeft": "10px"},
+                            style=botao_style,
                         ),
                         dcc.Download(id="download_relatorio_proc"),
                     ],
@@ -516,6 +528,8 @@ layout = html.Div(
         ),
     ]
 )
+
+
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
 # ----------------------------------------
@@ -619,7 +633,6 @@ def atualizar_tabela_proc(
     total_valor_contratado = dff["Valor Contratado"].sum()
     qtd_processos = len(dff)
 
-    # Ajuste: se quiser média só dos concluídos, trocar divisor para qtd_concluidos
     concluidos = (dff["Status"] == "Concluído").sum()
     media_por_processo = (
         total_valor_contratado / concluidos if concluidos > 0 else 0.0
@@ -888,7 +901,6 @@ def atualizar_tabela_proc(
         fig_valor_mes,
     )
 
-#5. Filtros em cascata, limpar filtros e PDF
 
 # ----------------------------------------
 # Callback: filtros em cascata (ordem-invariante)
@@ -973,6 +985,7 @@ def atualizar_opcoes_filtros(
 
     return op_solicitante, op_objeto, op_modalidade, op_status, op_classif
 
+
 # ----------------------------------------
 # Callback: limpar filtros (volta sempre para ano atual)
 # ----------------------------------------
@@ -993,11 +1006,24 @@ def limpar_filtros_proc(n):
     Limpa todos os filtros e retorna o ano para ANO_ATUAL.
     """
     return None, ANO_ATUAL, None, None, None, None, None, None
-
 #Funções auxiliares de PDF e callback do relatório
 
 # ========================================
-# FUNÇÕES PARA CARDS NO PDF - COMPRAS
+# FUNÇÕES AUXILIARES
+# ========================================
+def formatar_moeda(valor):
+    """
+    Formata um valor numérico como moeda brasileira (R$ X.XXX,XX).
+    """
+    try:
+        valor_float = float(valor) if isinstance(valor, str) else valor
+        return f"R$ {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (ValueError, TypeError):
+        return str(valor)
+
+
+# ========================================
+# FUNÇÕES PARA CARDS NO PDF – COMPRAS
 # ========================================
 def criar_card_elemento(titulo, valor, cor):
     """
@@ -1005,8 +1031,7 @@ def criar_card_elemento(titulo, valor, cor):
     Args:
         titulo: Título do card
         valor: Valor a exibir (já formatado)
-        cor: Cor hexadecimal para o valor (não aplicada diretamente aqui,
-             pode ser customizada depois no ParagraphStyle)
+        cor: Cor hexadecimal para o valor (parâmetro documentado, pode ser usado após)
     """
     card_content = [
         [
@@ -1071,21 +1096,6 @@ def criar_cards_resumo_pdf(story, df, pagesize):
     em_andamento = (df_num["Status"] == "Em Andamento").sum()
     nao_concluidos = (df_num["Status"] == "Não Concluído").sum()
 
-    # Título dos cards
-    story.append(
-        Paragraph(
-            "RESUMO EXECUTIVO",
-            ParagraphStyle(
-                "cards_titulo",
-                fontSize=10,
-                alignment=TA_CENTER,
-                textColor="#0b2b57",
-                fontName="Helvetica-Bold",
-                spaceAfter=8,
-                leading=12,
-            ),
-        )
-    )
     story.append(Spacer(1, 0.08 * inch))
 
     card_data = [
@@ -1180,22 +1190,113 @@ header_cell_style_compras = ParagraphStyle(
 
 
 def wrap_pdf_compras(text):
+    """Retorna Paragraph com estilo wrap (quebra de texto)."""
     return Paragraph(str(text), wrap_style_compras)
 
 
 def simple_pdf_compras(text):
+    """Retorna Paragraph com estilo simples (centralizado)."""
     return Paragraph(str(text), simple_style_compras)
 
 
 def header_pdf_compras(text):
+    """Retorna Paragraph com estilo de cabeçalho (branco em fundo azul)."""
     return Paragraph(str(text), header_cell_style_compras)
 
+
 # --------------------------------------------------
-# Função: criar tabela de dados do processo (COMPRAS)
+# CABEÇALHO PADRÃO – COMPRAS
+# --------------------------------------------------
+def adicionar_cabecalho_compras(story, df, styles):
+    """
+    Cabeçalho: Logo esq | Instituição | Logo dir
+    + Título em preto
+    + Linha 'Total de registros'
+    Espelha o layout usado em Portarias.
+    """
+
+    # --------------------------------------------------
+    # Cabeçalho: Logo esq | Instituição | Logo dir
+    # --------------------------------------------------
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png") else ""
+    )
+
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png") else ""
+    )
+
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
+
+    instituicao = Paragraph(
+        texto_instituicao,
+        ParagraphStyle(
+            "instituicao",
+            alignment=TA_CENTER,
+            leading=16,
+        ),
+    )
+
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
+    )
+
+    cabecalho.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # --------------------------------------------------
+    # Título (compras)
+    # --------------------------------------------------
+    titulo = Paragraph(
+        "RELATÓRIO DE PROCESSOS DE COMPRAS<br/>",
+        ParagraphStyle(
+            "titulo_compras",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # --------------------------------------------------
+    # Total de registros
+    # --------------------------------------------------
+    story.append(
+        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
+    )
+    story.append(Spacer(1, 0.15 * inch))
+
+
+# --------------------------------------------------
+# TABELA DE DADOS DO PROCESSO (COMPRAS)
 # --------------------------------------------------
 def criar_tabela_dados_compras(story, df, pagesize):
     """
-    Cria tabela de dados de compras com cabeçalho azul e texto branco.
+    Cria tabela de dados de compras com cabeçalho azul (#0b2b57) e texto branco.
     """
     if df.empty:
         return
@@ -1278,8 +1379,9 @@ def criar_tabela_dados_compras(story, df, pagesize):
     tbl.setStyle(TableStyle(style_list))
     story.append(tbl)
 
+
 # --------------------------------------------------
-# Callback: gerar PDF de processos de compras
+# CALLBACK: GERAR PDF DE PROCESSOS DE COMPRAS
 # --------------------------------------------------
 @dash.callback(
     Output("download_relatorio_proc", "data"),
@@ -1290,6 +1392,7 @@ def criar_tabela_dados_compras(story, df, pagesize):
 def gerar_pdf_proc(n, dados_proc):
     """
     Gera o relatório em PDF com base nos dados filtrados atualmente na tabela.
+    Usa o mesmo cabeçalho de Portarias (logo esq | instituição | logo dir + título + total de registros).
     """
     if not n or not dados_proc:
         return None
@@ -1329,118 +1432,13 @@ def gerar_pdf_proc(n, dados_proc):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data e hora no topo (fuso de Brasília)
-    tz_brasilia = timezone("America/Sao_Paulo")
-    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+    # ================= CABEÇALHO PADRÃO =================
+    adicionar_cabecalho_compras(story, df_pdf, styles)
 
-    data_top_table = Table(
-        [
-            [
-                Paragraph(
-                    data_hora_brasilia,
-                    ParagraphStyle(
-                        "data_topo_compras",
-                        fontSize=9,
-                        alignment=TA_RIGHT,
-                        textColor="#333333",
-                    ),
-                )
-            ]
-        ],
-        colWidths=[pagesize[0] - 0.3 * inch],
-    )
-    data_top_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
-        )
-    )
-    story.append(data_top_table)
-    story.append(Spacer(1, 0.1 * inch))
-
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
-
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
-
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.15 * inch,
-                        pagesize[0] / 2 - 0.15 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.3 * inch],
-                )
-
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título
-    titulo_texto = "RELATÓRIO DE PROCESSOS DE COMPRAS"
-    titulo_paragraph = Paragraph(
-        titulo_texto,
-        ParagraphStyle(
-            "titulo_compras",
-            fontSize=10,
-            alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
-            leading=14,
-        ),
-    )
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.3 * inch],
-    )
-    titulo_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ]
-        )
-    )
-    story.append(titulo_table)
-    story.append(Spacer(1, 0.15 * inch))
-
-    # Cards de resumo (6 na mesma linha)
+    # ================= CARDS DE RESUMO ==================
     criar_cards_resumo_pdf(story, df_cards, pagesize)
 
-    # Total de registros
-    story.append(
-        Paragraph(
-            f"Total de registros: {len(df_pdf)}",
-            styles["Normal"],
-        )
-    )
-    story.append(Spacer(1, 0.1 * inch))
-
-    # Tabela de dados
+    # ================= TABELA DE DADOS ==================
     criar_tabela_dados_compras(story, df_pdf, pagesize)
 
     doc.build(story)

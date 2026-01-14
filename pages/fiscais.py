@@ -42,7 +42,6 @@ URL_FISCAIS = (
     "gviz/tq?tqx=out:csv&sheet=Fiscais"
 )
 
-
 # nomes originais no CSV (linha 4 é o cabeçalho)
 COL_SETOR = "Setor"
 COL_CONTRATO = "CONTRATO"
@@ -150,6 +149,21 @@ dropdown_style = {
     "width": "100%",
     "marginBottom": "6px",
     "whiteSpace": "normal",
+}
+
+# --------------------------------------------------
+# Estilo dos botões (fundo azul, texto branco)
+# --------------------------------------------------
+botao_style = {
+    "backgroundColor": "#0b2b57",
+    "color": "white",
+    "padding": "8px 16px",
+    "border": "none",
+    "borderRadius": "4px",
+    "cursor": "pointer",
+    "fontSize": "12px",
+    "fontWeight": "bold",
+    "marginRight": "6px",
 }
 
 
@@ -394,13 +408,13 @@ layout = html.Div(
                                     "Limpar filtros",
                                     id="btn_limpar_filtros_fis",
                                     n_clicks=0,
-                                    className="filtros-button",
+                                    style=botao_style,
                                 ),
                                 html.Button(
                                     "Baixar Relatório PDF",
                                     id="btn_download_relatorio_fis",
                                     n_clicks=0,
-                                    className="filtros-button",
+                                    style=botao_style,
                                 ),
                                 dcc.Download(id="download_relatorio_fis"),
                             ],
@@ -593,7 +607,6 @@ def atualizar_opcoes_filtros_fis(
     servidores_list = []
     for serv_str in dff["Servidores"].unique():
         if isinstance(serv_str, str) and serv_str.strip():
-            # Separa por ";" e adiciona cada um
             for s in serv_str.split(";"):
                 s = s.strip()
                 if s and s not in servidores_list:
@@ -636,32 +649,33 @@ def limpar_filtros_fis(n):
 # --------------------------------------------------
 # PDF – estilos
 # --------------------------------------------------
-wrap_style = ParagraphStyle(
-    name="wrap_fiscais",
-    fontSize=7,
-    leading=8,
-    spaceAfter=2,
-    wordWrap="CJK",
-)
-
-simple_style = ParagraphStyle(
-    name="simple_fiscais",
+wrap_style_data = ParagraphStyle(
+    name="wrap_fiscais_data",
     fontSize=7,
     leading=8,
     alignment=TA_CENTER,
+    textColor=colors.black,
+)
+
+wrap_style_header = ParagraphStyle(
+    name="wrap_fiscais_header",
+    fontSize=7,
+    leading=8,
+    alignment=TA_CENTER,
+    textColor=colors.white,
 )
 
 
-def wrap(text):
-    return Paragraph(str(text), wrap_style)
+def wrap_data(text):
+    return Paragraph(str(text), wrap_style_data)
 
 
-def simple(text):
-    return Paragraph(str(text), simple_style)
+def wrap_header(text):
+    return Paragraph(str(text), wrap_style_header)
 
 
 # --------------------------------------------------
-# Callback: gerar PDF de fiscais (com zebra)
+# Callback: gerar PDF de fiscais (padrão unificado)
 # --------------------------------------------------
 @dash.callback(
     Output("download_relatorio_fis", "data"),
@@ -680,8 +694,8 @@ def gerar_pdf_fiscais(n, dados_fis):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
-        rightMargin=0.15 * inch,
-        leftMargin=0.15 * inch,
+        rightMargin=0.3 * inch,
+        leftMargin=0.3 * inch,
         topMargin=1.3 * inch,
         bottomMargin=0.4 * inch,
     )
@@ -689,14 +703,15 @@ def gerar_pdf_fiscais(n, dados_fis):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data e hora (topo direito)
+    # Data / Hora (topo direito)
     tz_brasilia = timezone("America/Sao_Paulo")
-    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
-    data_top_table = Table(
-        [
-            [
+    data_hora = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+
+    story.append(
+        Table(
+            [[
                 Paragraph(
-                    data_hora_brasilia,
+                    data_hora,
                     ParagraphStyle(
                         "data_topo_fiscais",
                         fontSize=9,
@@ -704,92 +719,81 @@ def gerar_pdf_fiscais(n, dados_fis):
                         textColor="#333333",
                     ),
                 )
-            ]
-        ],
-        colWidths=[pagesize[0] - 0.3 * inch],
-    )
-    data_top_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
+            ]],
+            colWidths=[pagesize[0] - 0.6 * inch],
         )
     )
-    story.append(data_top_table)
-    story.append(Spacer(1, 0.1 * inch))
+    story.append(Spacer(1, 0.15 * inch))
 
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
+    # Cabeçalho: Logo esq | Instituição | Logo dir
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png")
+        else ""
+    )
 
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png")
+        else ""
+    )
 
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.15 * inch,
-                        pagesize[0] / 2 - 0.15 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.3 * inch],
-                )
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
 
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título
-    titulo_texto = "RELATÓRIO DE FISCAIS DE CONTRATOS"
-    titulo_paragraph = Paragraph(
-        titulo_texto,
+    instituicao = Paragraph(
+        texto_instituicao,
         ParagraphStyle(
-            "titulo_fiscais",
-            fontSize=10,
+            "instituicao_fiscais",
             alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
-            leading=14,
+            leading=16,
         ),
     )
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.3 * inch],
+
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
     )
-    titulo_table.setStyle(
+
+    cabecalho.setStyle(
         TableStyle(
             [
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
-    story.append(titulo_table)
-    story.append(Spacer(1, 0.15 * inch))
 
-    # Total de registros
-    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
-    story.append(Spacer(1, 0.1 * inch))
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # Título
+    titulo = Paragraph(
+        "RELATÓRIO DE FISCAIS DE CONTRATOS<br/>",
+        ParagraphStyle(
+            "titulo_fiscais",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
+
+    story.append(
+        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
+    )
+    story.append(Spacer(1, 0.15 * inch))
 
     # Colunas do PDF
     cols = [
@@ -801,26 +805,24 @@ def gerar_pdf_fiscais(n, dados_fis):
         "Servidores",
         "Status",
     ]
-    cols = [c for c in cols if c in df.columns]
+
+    for c in cols:
+        if c not in df.columns:
+            df[c] = ""
 
     df_pdf = df.copy()
 
-    header = cols
+    header = [wrap_header(c) for c in cols]
     table_data = [header]
 
+    status_values = df["Status"].fillna("").tolist()
+
     for _, row in df_pdf[cols].iterrows():
-        linha = []
-        for c in cols:
-            valor = str(row[c]).strip()
-            if c in ["Objeto", "Contratada", "Servidores"]:
-                linha.append(wrap(valor))
-            elif c in ["Final da Vigência", "Status"]:
-                linha.append(simple(valor))
-            else:
-                linha.append(simple(valor))
+        linha = [wrap_data(row[c]) for c in cols]
         table_data.append(linha)
 
     # Larguras de coluna (ajustadas)
+    page_width = pagesize[0] - 0.6 * inch
     col_widths = [
         0.75 * inch,  # Setor
         0.85 * inch,  # Contrato
@@ -830,70 +832,46 @@ def gerar_pdf_fiscais(n, dados_fis):
         1.9 * inch,   # Servidores
         1.0 * inch,   # Status
     ]
-    col_widths = col_widths[: len(cols)]
 
-    tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+    tbl = Table(table_data, colWidths=col_widths[: len(cols)], repeatRows=1)
 
-    style_list = [
+    table_styles = [
         # Header
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("FONTSIZE", (0, 0), (-1, 0), 7),
-        ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
-        # Grid
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        # Dados
-        ("ALIGN", (0, 1), (-1, -1), "LEFT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("FONTSIZE", (0, 1), (-1, -1), 7),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-        # Zebra striping: branco e cinza alternados
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
-        # Quebra
-        ("WORDWRAP", (0, 0), (-1, -1), True),
     ]
 
-    # Cores por status (linha inteira) – sobrescreve a zebra apenas quando necessário
-    status_col_idx = cols.index("Status") if "Status" in cols else -1
-    if status_col_idx != -1:
-        for row_idx, row_data in enumerate(table_data[1:], start=1):
-            # row_data[status_col_idx] é um Paragraph; tenta pegar .text
-            status_paragraph = row_data[status_col_idx]
-            status_value = ""
-            try:
-                status_value = str(status_paragraph.text).lower()
-            except Exception:
-                status_value = str(status_paragraph).lower()
+    # Cores por status (linha inteira)
+    for i, status in enumerate(status_values, 1):
+        status_str = str(status).strip().lower()
+        if "vencido" in status_str:
+            table_styles.append(
+                ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#ffcccc"))
+            )
+            table_styles.append(
+                ("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#cc0000"))
+            )
+        elif "próximo do vencimento" in status_str or "proximo do vencimento" in status_str:
+            table_styles.append(
+                ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#ffffcc"))
+            )
+            table_styles.append(
+                ("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#cc8800"))
+            )
 
-            if "vencido" in status_value:
-                style_list.append(
-                    ("BACKGROUND", (0, row_idx), (-1, row_idx), colors.HexColor("#ffcccc"))
-                )
-                style_list.append(
-                    ("TEXTCOLOR", (0, row_idx), (-1, row_idx), colors.HexColor("#cc0000"))
-                )
-            elif (
-                "próximo do vencimento" in status_value
-                or "proximo do vencimento" in status_value
-            ):
-                style_list.append(
-                    ("BACKGROUND", (0, row_idx), (-1, row_idx), colors.HexColor("#ffffcc"))
-                )
-                style_list.append(
-                    ("TEXTCOLOR", (0, row_idx), (-1, row_idx), colors.HexColor("#cc8800"))
-                )
-            # Status "Vigente" mantém o padrão branco/cinza
-
-    tbl.setStyle(TableStyle(style_list))
+    tbl.setStyle(TableStyle(table_styles))
     story.append(tbl)
 
     doc.build(story)
     buffer.seek(0)
-
-    from dash import dcc
 
     return dcc.send_bytes(buffer.getvalue(), "fiscais.pdf")
