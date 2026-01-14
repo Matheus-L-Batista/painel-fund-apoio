@@ -40,8 +40,20 @@ dropdown_style = {
     "width": "100%",
     "marginBottom": "6px",
     "whiteSpace": "normal",
-    "position": "relative",   # NOVO
-    "zIndex": 1000,           # NOVO
+    "position": "relative",
+    "zIndex": 1000,
+}
+
+# Estilo comum para botões (fundo azul, texto branco)
+button_style = {
+    "backgroundColor": "#0b2b57",
+    "color": "white",
+    "padding": "8px 16px",
+    "border": "none",
+    "borderRadius": "4px",
+    "cursor": "pointer",
+    "fontSize": "14px",
+    "fontWeight": "bold",
 }
 
 
@@ -362,14 +374,13 @@ layout = html.Div(
                                     "Limpar filtros",
                                     id="btn_limpar_filtros_pca",
                                     n_clicks=0,
-                                    className="filtros-button",
+                                    style={**button_style, "marginRight": "10px"},
                                 ),
                                 html.Button(
                                     "Baixar Relatório PDF",
                                     id="btn_download_relatorio_pca",
                                     n_clicks=0,
-                                    className="filtros-button",
-                                    style={"marginLeft": "10px"},
+                                    style=button_style,
                                 ),
                                 dcc.Download(id="download_relatorio_pca"),
                             ],
@@ -470,7 +481,6 @@ layout = html.Div(
                                 "overflowY": "auto",
                                 "maxHeight": "420px",
                                 "width": "100%",
-                                "zIndex": 0,   # NOVO
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -484,15 +494,11 @@ layout = html.Div(
                                     "width": "6%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Área requisitante"
-                                    },
+                                    "if": {"column_id": "Área requisitante"},
                                     "width": "12%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Material ou Serviço"
-                                    },
+                                    "if": {"column_id": "Material ou Serviço"},
                                     "width": "10%",
                                 },
                                 {
@@ -500,33 +506,23 @@ layout = html.Div(
                                     "width": "5%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Nome Classe/Grupo"
-                                    },
+                                    "if": {"column_id": "Nome Classe/Grupo"},
                                     "width": "20%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Código PDM material"
-                                    },
+                                    "if": {"column_id": "Código PDM material"},
                                     "width": "10%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Nome do PDM material"
-                                    },
+                                    "if": {"column_id": "Nome do PDM material"},
                                     "width": "16%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Planejado_fmt"
-                                    },
+                                    "if": {"column_id": "Planejado_fmt"},
                                     "width": "7%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Executado_fmt"
-                                    },
+                                    "if": {"column_id": "Executado_fmt"},
                                     "width": "7%",
                                 },
                                 {
@@ -538,13 +534,10 @@ layout = html.Div(
                                 "fontWeight": "bold",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-                                "zIndex": 0,   # NOVO
                             },
                             style_data_conditional=[
                                 {
-                                    "if": {
-                                        "filter_query": "{Saldo_num} <= 0"
-                                    },
+                                    "if": {"filter_query": "{Saldo_num} <= 0"},
                                     "backgroundColor": "#ffcccc",
                                 },
                             ],
@@ -583,7 +576,6 @@ layout = html.Div(
                                 "overflowY": "auto",
                                 "maxHeight": "420px",
                                 "width": "100%",
-                                "zIndex": 0,   # NOVO
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -597,15 +589,11 @@ layout = html.Div(
                                     "width": "10%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Área requisitante"
-                                    },
+                                    "if": {"column_id": "Área requisitante"},
                                     "width": "12%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Material ou Serviço"
-                                    },
+                                    "if": {"column_id": "Material ou Serviço"},
                                     "width": "10%",
                                 },
                                 {
@@ -613,9 +601,7 @@ layout = html.Div(
                                     "width": "6%",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Processo"
-                                    },
+                                    "if": {"column_id": "Processo"},
                                     "width": "12%",
                                 },
                                 {
@@ -624,9 +610,7 @@ layout = html.Div(
                                     "textAlign": "left",
                                 },
                                 {
-                                    "if": {
-                                        "column_id": "Observações"
-                                    },
+                                    "if": {"column_id": "Observações"},
                                     "width": "15%",
                                     "textAlign": "left",
                                 },
@@ -639,7 +623,6 @@ layout = html.Div(
                                 "fontWeight": "bold",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-                                "zIndex": 0,   # NOVO
                             },
                         ),
                     ],
@@ -918,6 +901,8 @@ def simple_pdf(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_pca(n, dados_processos, dados_planejamento):
+    from dash import dcc
+
     if not n or (not dados_processos and not dados_planejamento):
         return None
 
@@ -967,76 +952,70 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     story.append(data_top_table)
     story.append(Spacer(1, 0.1 * inch))
 
-    # Logos
-    logos_path = []
-    if os.path.exists(os.path.join("assets", "brasaobrasil.png")):
-        logos_path.append(os.path.join("assets", "brasaobrasil.png"))
-    if os.path.exists(os.path.join("assets", "simbolo_RGB.png")):
-        logos_path.append(os.path.join("assets", "simbolo_RGB.png"))
+    # Cabeçalho: Logo esq | Instituição | Logo dir
+    logo_esq = (
+        Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/brasaobrasil.png")
+        else ""
+    )
 
-    if logos_path:
-        logos = []
-        for logo_file in logos_path:
-            if os.path.exists(logo_file):
-                logo = Image(logo_file, width=1.2 * inch, height=1.2 * inch)
-                logos.append(logo)
+    logo_dir = (
+        Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
+        if os.path.exists("assets/simbolo_RGB.png")
+        else ""
+    )
 
-        if logos:
-            if len(logos) == 2:
-                logo_table = Table(
-                    [[logos[0], logos[1]]],
-                    colWidths=[
-                        pagesize[0] / 2 - 0.15 * inch,
-                        pagesize[0] / 2 - 0.15 * inch,
-                    ],
-                )
-            else:
-                logo_table = Table(
-                    [[logos[0]]],
-                    colWidths=[pagesize[0] - 0.3 * inch],
-                )
+    texto_instituicao = (
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+    )
 
-            logo_table.setStyle(
-                TableStyle(
-                    [
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ]
-                )
-            )
-            story.append(logo_table)
-            story.append(Spacer(1, 0.15 * inch))
-
-    # Título
-    titulo_texto = "RELATÓRIO DE PLANEJAMENTO DE CONTRATAÇÃO ANUAL (PCA)\n"
-    titulo_paragraph = Paragraph(
-        titulo_texto,
+    instituicao = Paragraph(
+        texto_instituicao,
         ParagraphStyle(
-            "titulo_pca",
-            fontSize=11,
+            "instituicao_fiscais",
             alignment=TA_CENTER,
-            textColor="#0b2b57",
-            spaceAfter=4,
-            leading=14,
-            fontName="Helvetica-Bold",
+            leading=16,
         ),
     )
 
-    titulo_table = Table(
-        [[titulo_paragraph]],
-        colWidths=[pagesize[0] - 0.3 * inch],
+    cabecalho = Table(
+        [[logo_esq, instituicao, logo_dir]],
+        colWidths=[
+            1.4 * inch,
+            4.2 * inch,
+            1.4 * inch,
+        ],
     )
 
-    titulo_table.setStyle(
+    cabecalho.setStyle(
         TableStyle(
             [
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
-    story.append(titulo_table)
-    story.append(Spacer(1, 0.15 * inch))
+
+    story.append(cabecalho)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # Título principal
+    titulo = Paragraph(
+        "RELATÓRIO DE PLANEJAMENTO DE CONTRATAÇÃO ANUAL (PCA)<br/>",
+        ParagraphStyle(
+            "titulo_fiscais",
+            alignment=TA_CENTER,
+            fontSize=10,
+            leading=14,
+            textColor=colors.black,
+        ),
+    )
+
+    story.append(titulo)
+    story.append(Spacer(1, 0.2 * inch))
 
     # ========================
     # TABELA 1: PLANEJAMENTO
@@ -1141,16 +1120,14 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             ),
         ]
 
-        # ---- LINHA EM VERMELHO QUANDO SALDO <= 0 ----
+        # Destacar linha em vermelho quando saldo <= 0
         saldo_col_index = cols_plan.index("Saldo_fmt") if "Saldo_fmt" in cols_plan else None
 
         if saldo_col_index is not None:
-            # tabela tem header na linha 0, dados começam na 1
             for row_idx in range(1, len(table_data_plan)):
                 try:
-                    # table_data_plan[row_idx][saldo_col_index] é um Paragraph pelo simple_pdf
                     saldo_paragraph = table_data_plan[row_idx][saldo_col_index]
-                    saldo_str = saldo_paragraph.text if hasattr(saldo_paragraph, "text") else str(saldo_paragraph)
+                    saldo_str = getattr(saldo_paragraph, "text", str(saldo_paragraph))
                     saldo_str = (
                         saldo_str.replace("R$", "")
                         .replace(".", "")
@@ -1275,14 +1252,14 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             ),
         ]
 
-        # OPCIONAL: linha em vermelho quando Valor <= 0
+        # Opcional: destacar linha quando Valor <= 0
         valor_col_index = cols_proc.index("Valor_fmt") if "Valor_fmt" in cols_proc else None
 
         if valor_col_index is not None:
             for row_idx in range(1, len(table_data_proc)):
                 try:
                     valor_paragraph = table_data_proc[row_idx][valor_col_index]
-                    valor_str = valor_paragraph.text if hasattr(valor_paragraph, "text") else str(valor_paragraph)
+                    valor_str = getattr(valor_paragraph, "text", str(valor_paragraph))
                     valor_str = (
                         valor_str.replace("R$", "")
                         .replace(".", "")
@@ -1303,8 +1280,6 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
 
         tbl_proc.setStyle(TableStyle(style_list_proc))
         story.append(tbl_proc)
-
-    from dash import dcc
 
     doc.build(story)
     buffer.seek(0)
