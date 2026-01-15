@@ -22,6 +22,7 @@ from datetime import datetime
 from pytz import timezone
 import os
 
+
 dash.register_page(
     __name__,
     path="/pca",
@@ -44,7 +45,6 @@ dropdown_style = {
     "zIndex": 1000,
 }
 
-# Estilo comum para botões (fundo azul, texto branco)
 button_style = {
     "backgroundColor": "#0b2b57",
     "color": "white",
@@ -124,7 +124,6 @@ def carregar_dados_pca():
 
     df["Ano"] = df["Ano"].astype("string")
 
-    # Colunas de texto
     for c in [
         "Área requisitante",
         "Material ou Serviço",
@@ -140,7 +139,6 @@ def carregar_dados_pca():
         if c in df.columns:
             df[c] = df[c].astype("string")
 
-    # Conversão específica de Código PDM material para inteiro (nullable)
     if "Código PDM material" in df.columns:
         df["Código PDM material"] = (
             df["Código PDM material"]
@@ -158,7 +156,9 @@ df_pca_base = carregar_dados_pca()
 # ------------------ Tabela 1: Planejamento ------------------
 df_planejamento = df_pca_base.copy()
 df_planejamento["Planejado"] = df_planejamento["Valor Total"]
-df_planejamento["Executado"] = df_planejamento["Planejado"] - df_planejamento["Saldo"]
+df_planejamento["Executado"] = (
+    df_planejamento["Planejado"] - df_planejamento["Saldo"]
+)
 
 # ------------------ Tabela 2: Processos (explodindo colunas) ------------------
 cols_grupo0 = [
@@ -224,7 +224,9 @@ def gerar_grupo(indice: int) -> pd.DataFrame:
 
 
 grupos_dinamicos = [gerar_grupo(i) for i in range(1, 32)]
-tabela_processos_unida = pd.concat([grupo0] + grupos_dinamicos, ignore_index=True)
+tabela_processos_unida = pd.concat(
+    [grupo0] + grupos_dinamicos, ignore_index=True
+)
 
 for c in [
     "Área requisitante",
@@ -237,16 +239,24 @@ for c in [
 ]:
     tabela_processos_unida[c] = tabela_processos_unida[c].astype("string")
 
-tabela_processos_unida["Valor"] = tabela_processos_unida["Valor"].apply(conv_moeda_br)
+tabela_processos_unida["Valor"] = tabela_processos_unida["Valor"].apply(
+    conv_moeda_br
+)
 
 # --------------------------------------------------
 # Layout
 # --------------------------------------------------
 layout = html.Div(
     children=[
+        # Barra de filtros
         html.Div(
             id="barra_filtros_pca",
             className="filtros-sticky",
+            style={
+                "position": "relative",
+                "zIndex": 1100,
+                "backgroundColor": "white",
+            },
             children=[
                 # Linha 1 de filtros
                 html.Div(
@@ -374,7 +384,10 @@ layout = html.Div(
                                     "Limpar filtros",
                                     id="btn_limpar_filtros_pca",
                                     n_clicks=0,
-                                    style={**button_style, "marginRight": "10px"},
+                                    style={
+                                        **button_style,
+                                        "marginRight": "10px",
+                                    },
                                 ),
                                 html.Button(
                                     "Baixar Relatório PDF",
@@ -427,6 +440,7 @@ layout = html.Div(
                 ),
             ],
         ),
+        # Tabelas
         html.Div(
             style={
                 "display": "flex",
@@ -436,7 +450,12 @@ layout = html.Div(
             },
             children=[
                 html.Div(
-                    style={"flex": "1 1 50%", "minWidth": "300px"},
+                    style={
+                        "flex": "1 1 50%",
+                        "minWidth": "300px",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
                     children=[
                         html.H4("Planejamento (PCA)"),
                         dash_table.DataTable(
@@ -481,6 +500,8 @@ layout = html.Div(
                                 "overflowY": "auto",
                                 "maxHeight": "420px",
                                 "width": "100%",
+                                "position": "relative",
+                                "zIndex": 1,
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -494,11 +515,15 @@ layout = html.Div(
                                     "width": "6%",
                                 },
                                 {
-                                    "if": {"column_id": "Área requisitante"},
+                                    "if": {
+                                        "column_id": "Área requisitante"
+                                    },
                                     "width": "12%",
                                 },
                                 {
-                                    "if": {"column_id": "Material ou Serviço"},
+                                    "if": {
+                                        "column_id": "Material ou Serviço"
+                                    },
                                     "width": "10%",
                                 },
                                 {
@@ -506,23 +531,33 @@ layout = html.Div(
                                     "width": "5%",
                                 },
                                 {
-                                    "if": {"column_id": "Nome Classe/Grupo"},
+                                    "if": {
+                                        "column_id": "Nome Classe/Grupo"
+                                    },
                                     "width": "20%",
                                 },
                                 {
-                                    "if": {"column_id": "Código PDM material"},
+                                    "if": {
+                                        "column_id": "Código PDM material"
+                                    },
                                     "width": "10%",
                                 },
                                 {
-                                    "if": {"column_id": "Nome do PDM material"},
+                                    "if": {
+                                        "column_id": "Nome do PDM material"
+                                    },
                                     "width": "16%",
                                 },
                                 {
-                                    "if": {"column_id": "Planejado_fmt"},
+                                    "if": {
+                                        "column_id": "Planejado_fmt"
+                                    },
                                     "width": "7%",
                                 },
                                 {
-                                    "if": {"column_id": "Executado_fmt"},
+                                    "if": {
+                                        "column_id": "Executado_fmt"
+                                    },
                                     "width": "7%",
                                 },
                                 {
@@ -537,7 +572,9 @@ layout = html.Div(
                             },
                             style_data_conditional=[
                                 {
-                                    "if": {"filter_query": "{Saldo_num} <= 0"},
+                                    "if": {
+                                        "filter_query": "{Saldo_num} <= 0"
+                                    },
                                     "backgroundColor": "#ffcccc",
                                 },
                             ],
@@ -545,7 +582,12 @@ layout = html.Div(
                     ],
                 ),
                 html.Div(
-                    style={"flex": "1 1 50%", "minWidth": "300px"},
+                    style={
+                        "flex": "1 1 50%",
+                        "minWidth": "300px",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
                     children=[
                         html.H4("Processos vinculados ao PCA"),
                         dash_table.DataTable(
@@ -576,6 +618,8 @@ layout = html.Div(
                                 "overflowY": "auto",
                                 "maxHeight": "420px",
                                 "width": "100%",
+                                "position": "relative",
+                                "zIndex": 1,
                             },
                             style_cell={
                                 "textAlign": "center",
@@ -589,11 +633,15 @@ layout = html.Div(
                                     "width": "10%",
                                 },
                                 {
-                                    "if": {"column_id": "Área requisitante"},
+                                    "if": {
+                                        "column_id": "Área requisitante"
+                                    },
                                     "width": "12%",
                                 },
                                 {
-                                    "if": {"column_id": "Material ou Serviço"},
+                                    "if": {
+                                        "column_id": "Material ou Serviço"
+                                    },
                                     "width": "10%",
                                 },
                                 {
@@ -610,7 +658,9 @@ layout = html.Div(
                                     "textAlign": "left",
                                 },
                                 {
-                                    "if": {"column_id": "Observações"},
+                                    "if": {
+                                        "column_id": "Observações"
+                                    },
                                     "width": "15%",
                                     "textAlign": "left",
                                 },
@@ -703,7 +753,7 @@ def atualizar_tabelas_pca(
         dff_plan = dff_plan[dff_plan["Material ou Serviço"] == tipo]
         dff_proc = dff_proc[dff_proc["Material ou Serviço"] == tipo]
 
-    # remove linhas sem processo
+    # remove linhas sem processo da tabela de processos
     dff_proc = dff_proc[
         (dff_proc["Processo"].astype(str).str.strip() != "")
         & (
@@ -721,23 +771,41 @@ def atualizar_tabelas_pca(
         dff_plan["Item"]
         .fillna("")
         .astype(str)
-        .apply(
-            lambda x: str(int(float(x))) if x not in ["", "nan"] else ""
-        )
+        .apply(lambda x: str(int(float(x))) if x not in ["", "nan"] else "")
     )
 
     dff_proc["Item"] = (
         dff_proc["Item"]
         .fillna("")
         .astype(str)
-        .apply(
-            lambda x: str(int(float(x))) if x not in ["", "nan"] else ""
-        )
+        .apply(lambda x: str(int(float(x))) if x not in ["", "nan"] else "")
     )
+
+    # remover linhas com '*' em colunas principais
+    cols_limpar_plan = [
+        "DFD",
+        "Área requisitante",
+        "Material ou Serviço",
+        "Item",
+        "Nome Classe/Grupo",
+    ]
+    for c in cols_limpar_plan:
+        if c in dff_plan.columns:
+            dff_plan = dff_plan[dff_plan[c] != "*"]
+
+    cols_limpar_proc = [
+        "DFD",
+        "Área requisitante",
+        "Material ou Serviço",
+        "Item",
+        "Processo",
+    ]
+    for c in cols_limpar_proc:
+        if c in dff_proc.columns:
+            dff_proc = dff_proc[dff_proc[c] != "*"]
 
     dff_plan["Saldo_num"] = dff_plan["Saldo"]
 
-    # Exibir Código PDM material como inteiro (sem NaN)
     if "Código PDM material" in dff_plan.columns:
         dff_plan["Código PDM material"] = dff_plan["Código PDM material"].apply(
             lambda x: "" if pd.isna(x) else int(x)
@@ -952,7 +1020,7 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     story.append(data_top_table)
     story.append(Spacer(1, 0.1 * inch))
 
-    # Cabeçalho: Logo esq | Instituição | Logo dir
+    # Cabeçalho
     logo_esq = (
         Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
         if os.path.exists("assets/brasaobrasil.png")
@@ -1003,7 +1071,6 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     story.append(cabecalho)
     story.append(Spacer(1, 0.25 * inch))
 
-    # Título principal
     titulo = Paragraph(
         "RELATÓRIO DE PLANEJAMENTO DE CONTRATAÇÃO ANUAL (PCA)<br/>",
         ParagraphStyle(
@@ -1018,9 +1085,7 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     story.append(titulo)
     story.append(Spacer(1, 0.2 * inch))
 
-    # ========================
     # TABELA 1: PLANEJAMENTO
-    # ========================
     if dados_planejamento:
         df_plan = pd.DataFrame(dados_planejamento)
 
@@ -1084,14 +1149,14 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             table_data_plan.append(linha)
 
         col_widths_plan = [
-            0.7 * inch,  # DFD
-            1.1 * inch,  # Área requisitante
-            1.0 * inch,  # Material ou Serviço
-            0.5 * inch,  # Item
-            2.0 * inch,  # Nome Classe/Grupo
-            0.95 * inch,  # Planejado
-            0.95 * inch,  # Executado
-            0.95 * inch,  # Saldo
+            0.7 * inch,
+            1.1 * inch,
+            1.0 * inch,
+            0.5 * inch,
+            2.0 * inch,
+            0.95 * inch,
+            0.95 * inch,
+            0.95 * inch,
         ]
 
         tbl_plan = Table(
@@ -1121,28 +1186,43 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             ),
         ]
 
-        # Destacar linha em vermelho quando saldo <= 0
-        saldo_col_index = cols_plan.index("Saldo_fmt") if "Saldo_fmt" in cols_plan else None
+        saldo_col_index = (
+            cols_plan.index("Saldo_fmt") if "Saldo_fmt" in cols_plan else None
+        )
 
         if saldo_col_index is not None:
             for row_idx in range(1, len(table_data_plan)):
                 try:
                     saldo_paragraph = table_data_plan[row_idx][saldo_col_index]
-                    saldo_str = getattr(saldo_paragraph, "text", str(saldo_paragraph))
+                    saldo_str = getattr(
+                        saldo_paragraph, "text", str(saldo_paragraph)
+                    )
                     saldo_str = (
                         saldo_str.replace("R$", "")
                         .replace(".", "")
                         .replace(",", ".")
                         .strip()
                     )
-                    saldo_valor = float(saldo_str) if saldo_str not in ("", "-") else 0.0
+                    saldo_valor = (
+                        float(saldo_str) if saldo_str not in ("", "-") else 0.0
+                    )
 
                     if saldo_valor <= 0:
                         style_list_plan.append(
-                            ("BACKGROUND", (0, row_idx), (-1, row_idx), colors.HexColor("#ffcccc"))
+                            (
+                                "BACKGROUND",
+                                (0, row_idx),
+                                (-1, row_idx),
+                                colors.HexColor("#ffcccc"),
+                            )
                         )
                         style_list_plan.append(
-                            ("TEXTCOLOR", (0, row_idx), (-1, row_idx), colors.HexColor("#cc0000"))
+                            (
+                                "TEXTCOLOR",
+                                (0, row_idx),
+                                (-1, row_idx),
+                                colors.HexColor("#cc0000"),
+                            )
                         )
                 except (ValueError, IndexError):
                     pass
@@ -1151,9 +1231,7 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
         story.append(tbl_plan)
         story.append(Spacer(1, 0.2 * inch))
 
-    # ==============================
     # TABELA 2: PROCESSOS VINCULADOS
-    # ==============================
     if dados_processos:
         df_proc = pd.DataFrame(dados_processos)
 
@@ -1216,14 +1294,14 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             table_data_proc.append(linha)
 
         col_widths_proc = [
-            0.7 * inch,  # DFD
-            1.1 * inch,  # Área requisitante
-            1.0 * inch,  # Material ou Serviço
-            0.5 * inch,  # Item
-            1.1 * inch,  # Processo
-            2.0 * inch,  # Objeto
-            2.0 * inch,  # Observações
-            0.95 * inch,  # Valor
+            0.7 * inch,
+            1.1 * inch,
+            1.0 * inch,
+            0.5 * inch,
+            1.1 * inch,
+            2.0 * inch,
+            2.0 * inch,
+            0.95 * inch,
         ]
 
         tbl_proc = Table(
@@ -1253,28 +1331,45 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
             ),
         ]
 
-        # Opcional: destacar linha quando Valor <= 0
-        valor_col_index = cols_proc.index("Valor_fmt") if "Valor_fmt" in cols_proc else None
+        valor_col_index = (
+            cols_proc.index("Valor_fmt") if "Valor_fmt" in cols_proc else None
+        )
 
         if valor_col_index is not None:
             for row_idx in range(1, len(table_data_proc)):
                 try:
                     valor_paragraph = table_data_proc[row_idx][valor_col_index]
-                    valor_str = getattr(valor_paragraph, "text", str(valor_paragraph))
+                    valor_str = getattr(
+                        valor_paragraph, "text", str(valor_paragraph)
+                    )
                     valor_str = (
                         valor_str.replace("R$", "")
                         .replace(".", "")
                         .replace(",", ".")
                         .strip()
                     )
-                    valor_numerico = float(valor_str) if valor_str not in ("", "-") else 0.0
+                    valor_numerico = (
+                        float(valor_str)
+                        if valor_str not in ("", "-")
+                        else 0.0
+                    )
 
                     if valor_numerico <= 0:
                         style_list_proc.append(
-                            ("BACKGROUND", (0, row_idx), (-1, row_idx), colors.HexColor("#ffcccc"))
+                            (
+                                "BACKGROUND",
+                                (0, row_idx),
+                                (-1, row_idx),
+                                colors.HexColor("#ffcccc"),
+                            )
                         )
                         style_list_proc.append(
-                            ("TEXTCOLOR", (0, row_idx), (-1, row_idx), colors.HexColor("#cc0000"))
+                            (
+                                "TEXTCOLOR",
+                                (0, row_idx),
+                                (-1, row_idx),
+                                colors.HexColor("#cc0000"),
+                            )
                         )
                 except (ValueError, IndexError):
                     pass
@@ -1285,6 +1380,9 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     doc.build(story)
     buffer.seek(0)
 
-    return dcc.send_bytes(
-        f"relatorio_pca_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-    )
+    nome_arquivo = f"relatorio_pca_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+
+    def escrever_bytes(f):
+        f.write(buffer.getvalue())
+
+    return dcc.send_bytes(escrever_bytes, nome_arquivo)
