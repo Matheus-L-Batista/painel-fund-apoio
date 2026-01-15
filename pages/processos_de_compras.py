@@ -1,12 +1,17 @@
 import dash
+
 from dash import html, dcc, Input, Output, State, dash_table
+
 from dash.exceptions import PreventUpdate
 
 import pandas as pd
+
 from io import BytesIO
 
 from reportlab.lib.pagesizes import landscape, A4
+
 from reportlab.lib.units import inch
+
 from reportlab.platypus import (
     SimpleDocTemplate,
     Paragraph,
@@ -15,22 +20,29 @@ from reportlab.platypus import (
     TableStyle,
     Image,
 )
+
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+
 from reportlab.lib import colors
 
 import plotly.express as px
+
 import plotly.graph_objects as go
+
 from plotly.subplots import make_subplots
 
 from datetime import datetime
-from pytz import timezone
-import os
 
+from pytz import timezone
+
+import os
 
 # --------------------------------------------------
 # Registro da página
 # --------------------------------------------------
+
 dash.register_page(
     __name__,
     path="/processos-de-compras",
@@ -45,10 +57,11 @@ URL_PROCESSOS = (
     "gviz/tq?tqx=out:csv&sheet=BI%20-%20Itajub%C3%A1"
 )
 
-
 # --------------------------------------------------
 # Carga de dados e utilitários
 # --------------------------------------------------
+
+
 def carregar_dados_processos():
     """
     Lê a planilha de processos de compras e faz:
@@ -139,7 +152,9 @@ def carregar_dados_processos():
 
 
 df_proc_base = carregar_dados_processos()
-ANO_ATUAL = datetime.now().year
+
+# Força ano padrão 2025
+ANO_PADRAO = 2025
 
 dropdown_style = {
     "color": "black",
@@ -151,6 +166,7 @@ dropdown_style = {
 # --------------------------------------------------
 # Estilo unificado dos botões
 # --------------------------------------------------
+
 botao_style = {
     "backgroundColor": "#0b2b57",
     "color": "white",
@@ -197,16 +213,17 @@ MESES_ORDENADOS = [
 meses_disponiveis = (
     df_proc_base["Mes_finalizacao"].dropna().unique().tolist()
 )
+
 options_mes_finalizacao = [
     {"label": m.capitalize(), "value": m}
     for m in MESES_ORDENADOS
     if m in meses_disponiveis
 ]
 
-
 # --------------------------------------------------
 # Layout
 # --------------------------------------------------
+
 layout = html.Div(
     children=[
         # Barra de filtros
@@ -225,13 +242,18 @@ layout = html.Div(
                     children=[
                         # Filtro: Número do Processo (texto livre)
                         html.Div(
-                            style={"minWidth": "200px", "flex": "1 1 240px"},
+                            style={
+                                "minWidth": "200px",
+                                "flex": "1 1 240px",
+                            },
                             children=[
                                 html.Label("Número do Processo"),
                                 dcc.Input(
                                     id="filtro_num_proc",
                                     type="text",
-                                    placeholder="Digite o número completo ou parte",
+                                    placeholder=(
+                                        "Digite o número completo ou parte"
+                                    ),
                                     style={
                                         "width": "100%",
                                         "marginBottom": "6px",
@@ -239,15 +261,21 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                        # Filtro: Ano (sempre obrigatório, default = ano corrente)
+                        # Filtro: Ano (sempre obrigatório, default = 2025)
                         html.Div(
-                            style={"minWidth": "120px", "flex": "0 0 140px"},
+                            style={
+                                "minWidth": "120px",
+                                "flex": "0 0 140px",
+                            },
                             children=[
                                 html.Label("Ano"),
                                 dcc.Dropdown(
                                     id="filtro_ano_proc",
                                     options=[
-                                        {"label": str(a), "value": a}
+                                        {
+                                            "label": str(a),
+                                            "value": a,
+                                        }
                                         for a in sorted(
                                             df_proc_base["Ano"]
                                             .dropna()
@@ -255,15 +283,18 @@ layout = html.Div(
                                         )
                                         if str(a) != ""
                                     ],
-                                    value=ANO_ATUAL,
+                                    value=ANO_PADRAO,
                                     clearable=False,
                                     style=dropdown_style,
                                 ),
                             ],
                         ),
-                        # Filtro: Mês de Finalização (com ordem janeiro-dezembro)
+                        # Filtro: Mês de Finalização
                         html.Div(
-                            style={"minWidth": "150px", "flex": "0 0 170px"},
+                            style={
+                                "minWidth": "150px",
+                                "flex": "0 0 170px",
+                            },
                             children=[
                                 html.Label("Mês de Finalização"),
                                 dcc.Dropdown(
@@ -278,7 +309,10 @@ layout = html.Div(
                         ),
                         # Filtro: Solicitante
                         html.Div(
-                            style={"minWidth": "200px", "flex": "1 1 240px"},
+                            style={
+                                "minWidth": "200px",
+                                "flex": "1 1 240px",
+                            },
                             children=[
                                 html.Label("Solicitante"),
                                 dcc.Dropdown(
@@ -301,7 +335,10 @@ layout = html.Div(
                         ),
                         # Filtro: Objeto
                         html.Div(
-                            style={"minWidth": "260px", "flex": "2 1 320px"},
+                            style={
+                                "minWidth": "260px",
+                                "flex": "2 1 320px",
+                            },
                             children=[
                                 html.Label("Objeto"),
                                 dcc.Dropdown(
@@ -324,7 +361,7 @@ layout = html.Div(
                         ),
                     ],
                 ),
-                # Linha 2
+                # Linha 2 + botões à direita
                 html.Div(
                     style={
                         "display": "flex",
@@ -332,98 +369,139 @@ layout = html.Div(
                         "gap": "10px",
                         "alignItems": "flex-start",
                         "marginTop": "4px",
+                        "justifyContent": "space-between",
                     },
                     children=[
-                        # Filtro: Modalidade
+                        # Coluna esquerda: filtros
                         html.Div(
-                            style={"minWidth": "220px", "flex": "1 1 260px"},
+                            style={
+                                "display": "flex",
+                                "flexWrap": "wrap",
+                                "gap": "10px",
+                                "alignItems": "flex-start",
+                                "flex": "1 1 auto",
+                            },
                             children=[
-                                html.Label("Modalidade"),
-                                dcc.Dropdown(
-                                    id="filtro_modalidade_proc",
-                                    options=[
-                                        {"label": m, "value": m}
-                                        for m in sorted(
-                                            df_proc_base["Modalidade"]
-                                            .dropna()
-                                            .unique()
-                                        )
-                                        if str(m) != ""
+                                # Filtro: Modalidade
+                                html.Div(
+                                    style={
+                                        "minWidth": "220px",
+                                        "flex": "1 1 260px",
+                                    },
+                                    children=[
+                                        html.Label("Modalidade"),
+                                        dcc.Dropdown(
+                                            id="filtro_modalidade_proc",
+                                            options=[
+                                                {
+                                                    "label": m,
+                                                    "value": m,
+                                                }
+                                                for m in sorted(
+                                                    df_proc_base[
+                                                        "Modalidade"
+                                                    ]
+                                                    .dropna()
+                                                    .unique()
+                                                )
+                                                if str(m) != ""
+                                            ],
+                                            value=None,
+                                            placeholder="Todos",
+                                            clearable=True,
+                                            style=dropdown_style,
+                                        ),
                                     ],
-                                    value=None,
-                                    placeholder="Todos",
-                                    clearable=True,
-                                    style=dropdown_style,
+                                ),
+                                # Filtro: Status
+                                html.Div(
+                                    style={
+                                        "minWidth": "220px",
+                                        "flex": "1 1 260px",
+                                    },
+                                    children=[
+                                        html.Label("Status"),
+                                        dcc.Dropdown(
+                                            id="filtro_status_proc",
+                                            options=[
+                                                {
+                                                    "label": s,
+                                                    "value": s,
+                                                }
+                                                for s in sorted(
+                                                    df_proc_base["Status"]
+                                                    .dropna()
+                                                    .unique()
+                                                )
+                                                if str(s) != ""
+                                            ],
+                                            value=None,
+                                            placeholder="Todos",
+                                            clearable=True,
+                                            style=dropdown_style,
+                                        ),
+                                    ],
+                                ),
+                                # Filtro: Classificação (Não Concluídos)
+                                html.Div(
+                                    style={
+                                        "minWidth": "260px",
+                                        "flex": "2 1 320px",
+                                    },
+                                    children=[
+                                        html.Label(
+                                            "Classificação (Não Concluídos)"
+                                        ),
+                                        dcc.Dropdown(
+                                            id="filtro_classif_nc_proc",
+                                            options=[
+                                                {
+                                                    "label": c,
+                                                    "value": c,
+                                                }
+                                                for c in sorted(
+                                                    df_proc_base[
+                                                        "Classificação dos processos não concluídos"
+                                                    ]
+                                                    .dropna()
+                                                    .unique()
+                                                )
+                                                if str(c) != ""
+                                            ],
+                                            value=None,
+                                            placeholder="Todos",
+                                            clearable=True,
+                                            style=dropdown_style,
+                                        ),
+                                    ],
                                 ),
                             ],
                         ),
-                        # Filtro: Status
+                        # Coluna direita: botões
                         html.Div(
-                            style={"minWidth": "220px", "flex": "1 1 260px"},
+                            style={
+                                "display": "flex",
+                                "flexWrap": "wrap",
+                                "gap": "6px",
+                                "justifyContent": "flex-end",
+                                "alignItems": "center",
+                            },
                             children=[
-                                html.Label("Status"),
-                                dcc.Dropdown(
-                                    id="filtro_status_proc",
-                                    options=[
-                                        {"label": s, "value": s}
-                                        for s in sorted(
-                                            df_proc_base["Status"]
-                                            .dropna()
-                                            .unique()
-                                        )
-                                        if str(s) != ""
-                                    ],
-                                    value=None,
-                                    placeholder="Todos",
-                                    clearable=True,
-                                    style=dropdown_style,
+                                html.Button(
+                                    "Limpar Filtros",
+                                    id="btn_limpar_filtros_proc",
+                                    n_clicks=0,
+                                    style=botao_style,
                                 ),
+                                html.Button(
+                                    "Baixar Relatório PDF",
+                                    id="btn_download_relatorio_proc",
+                                    n_clicks=0,
+                                    style=botao_style,
+                                ),
+                                dcc.Download(id="download_relatorio_proc"),
                             ],
                         ),
-                        # Filtro: Classificação (Não Concluídos)
-                        html.Div(
-                            style={"minWidth": "260px", "flex": "2 1 320px"},
-                            children=[
-                                html.Label("Classificação (Não Concluídos)"),
-                                dcc.Dropdown(
-                                    id="filtro_classif_nc_proc",
-                                    options=[
-                                        {"label": c, "value": c}
-                                        for c in sorted(
-                                            df_proc_base[
-                                                "Classificação dos processos não concluídos"
-                                            ]
-                                            .dropna()
-                                            .unique()
-                                        )
-                                        if str(c) != ""
-                                    ],
-                                    value=None,
-                                    placeholder="Todos",
-                                    clearable=True,
-                                    style=dropdown_style,
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-                # Botões
-                html.Div(
-                    style={"marginTop": "4px"},
-                    children=[
-                        html.Button(
-                            "Limpar Filtros",
-                            id="btn_limpar_filtros_proc",
-                            n_clicks=0,
-                            style=botao_style,
-                        ),
-                        html.Button(
-                            "Baixar Relatório PDF",
-                            id="btn_download_relatorio_proc",
-                            n_clicks=0,
-                            style=botao_style,
-                        ),
-                        dcc.Download(id="download_relatorio_proc"),
                     ],
                 ),
             ],
@@ -451,11 +529,19 @@ layout = html.Div(
                     children=[
                         dcc.Graph(
                             id="grafico_status_proc",
-                            style={"flex": "1 1 320px", "minWidth": "300px"},
+                            style={
+                                "flex": "1 1 320px",
+                                "minWidth": "300px",
+                                "height": "320px",
+                            },
                         ),
                         dcc.Graph(
                             id="grafico_valor_mes_proc",
-                            style={"flex": "2 1 420px", "minWidth": "340px"},
+                            style={
+                                "flex": "2 1 420px",
+                                "minWidth": "340px",
+                                "height": "320px",
+                            },
                         ),
                     ],
                 ),
@@ -464,13 +550,25 @@ layout = html.Div(
                     id="tabela_proc",
                     columns=[
                         {"name": "Solicitante", "id": "Solicitante"},
-                        {"name": "Número Do Processo", "id": "Numero do Processo"},
+                        {
+                            "name": "Número Do Processo",
+                            "id": "Numero do Processo",
+                        },
                         {"name": "Objeto", "id": "Objeto"},
                         {"name": "Modalidade", "id": "Modalidade"},
-                        {"name": "Preço Estimado", "id": "PREÇO ESTIMADO_FMT"},
-                        {"name": "Valor Contratado", "id": "Valor Contratado_FMT"},
+                        {
+                            "name": "Preço Estimado",
+                            "id": "PREÇO ESTIMADO_FMT",
+                        },
+                        {
+                            "name": "Valor Contratado",
+                            "id": "Valor Contratado_FMT",
+                        },
                         {"name": "Status", "id": "Status"},
-                        {"name": "Data De Entrada", "id": "Data de Entrada"},
+                        {
+                            "name": "Data De Entrada",
+                            "id": "Data de Entrada",
+                        },
                         {
                             "name": "Data Finalização",
                             "id": "Data finalização_FMT",
@@ -526,13 +624,14 @@ layout = html.Div(
                 dcc.Store(id="store_dados_proc"),
             ],
         ),
-    ]
+    ],
 )
-
 
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
 # ----------------------------------------
+
+
 @dash.callback(
     Output("tabela_proc", "data"),
     Output("store_dados_proc", "data"),
@@ -559,10 +658,9 @@ def atualizar_tabela_proc(
     classif_nc,
 ):
     # -------------------------
-    # Filtro principal (ordem dos filtros não importa)
+    # Filtro principal
     # -------------------------
     dff = df_proc_base.copy()
-
     mask = pd.Series(True, index=dff.index)
 
     # Filtro por número de processo (texto parcial)
@@ -577,7 +675,6 @@ def atualizar_tabela_proc(
     # Ano (sempre aplicado se não nulo)
     if ano:
         mask &= dff["Ano"] == ano
-
     if mes_finalizacao:
         mask &= dff["Mes_finalizacao"] == mes_finalizacao
     if solicitante:
@@ -599,23 +696,24 @@ def atualizar_tabela_proc(
     # Formatação da tabela
     # -------------------------
     dff_display = dff.copy()
-
     dff_display["PREÇO ESTIMADO_FMT"] = dff_display["PREÇO ESTIMADO"].apply(
         formatar_moeda
     )
-    dff_display["Valor Contratado_FMT"] = dff_display["Valor Contratado"].apply(
-        formatar_moeda
-    )
+    dff_display["Valor Contratado_FMT"] = dff_display[
+        "Valor Contratado"
+    ].apply(formatar_moeda)
 
-    # Data de Entrada: converter string -> datetime -> string formatada
+    # Data de Entrada
     dff_display["Data de Entrada"] = pd.to_datetime(
-        dff_display["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
+        dff_display["Data de Entrada"],
+        format="%d/%m/%Y",
+        errors="coerce",
     ).dt.strftime("%d/%m/%Y")
 
-    # Data finalização (já em datetime), criar campo formatado
-    dff_display["Data finalização_FMT"] = dff_display[
-        "Data finalização"
-    ].dt.strftime("%d/%m/%Y")
+    # Data finalização
+    dff_display["Data finalização_FMT"] = dff_display["Data finalização"].dt.strftime(
+        "%d/%m/%Y"
+    )
 
     # Campo auxiliar para ordenação
     dff_display["Data_Entrada_dt"] = pd.to_datetime(
@@ -632,7 +730,6 @@ def atualizar_tabela_proc(
     # -------------------------
     total_valor_contratado = dff["Valor Contratado"].sum()
     qtd_processos = len(dff)
-
     concluidos = (dff["Status"] == "Concluído").sum()
     media_por_processo = (
         total_valor_contratado / concluidos if concluidos > 0 else 0.0
@@ -656,7 +753,11 @@ def atualizar_tabela_proc(
             children=[
                 html.H4(
                     formatar_moeda(total_valor_contratado),
-                    style={"color": "#c00000", "margin": "0", "fontSize": "20px"},
+                    style={
+                        "color": "#c00000",
+                        "margin": "0",
+                        "fontSize": "20px",
+                    },
                 ),
                 html.Div("Valor Contratado", style={"fontSize": "15px"}),
             ],
@@ -667,10 +768,15 @@ def atualizar_tabela_proc(
             children=[
                 html.H4(
                     formatar_moeda(media_por_processo),
-                    style={"color": "#003A70", "margin": "0", "fontSize": "20px"},
+                    style={
+                        "color": "#003A70",
+                        "margin": "0",
+                        "fontSize": "20px",
+                    },
                 ),
                 html.Div(
-                    "Média por Processo Concluído", style={"fontSize": "15px"}
+                    "Média por Processo Concluído",
+                    style={"fontSize": "15px"},
                 ),
             ],
         ),
@@ -678,7 +784,10 @@ def atualizar_tabela_proc(
             className="card-resumo",
             style=card_style,
             children=[
-                html.H4(qtd_processos, style={"margin": "0", "fontSize": "20px"}),
+                html.H4(
+                    qtd_processos,
+                    style={"margin": "0", "fontSize": "20px"},
+                ),
                 html.Div("Número de Processos", style={"fontSize": "15px"}),
             ],
         ),
@@ -686,7 +795,10 @@ def atualizar_tabela_proc(
             className="card-resumo",
             style=card_style,
             children=[
-                html.H4(concluidos, style={"margin": "0", "fontSize": "20px"}),
+                html.H4(
+                    concluidos,
+                    style={"margin": "0", "fontSize": "20px"},
+                ),
                 html.Div("Processos Concluídos", style={"fontSize": "15px"}),
             ],
         ),
@@ -694,22 +806,32 @@ def atualizar_tabela_proc(
             className="card-resumo",
             style=card_style,
             children=[
-                html.H4(em_andamento, style={"margin": "0", "fontSize": "20px"}),
-                html.Div("Processos Em Andamento", style={"fontSize": "15px"}),
+                html.H4(
+                    em_andamento,
+                    style={"margin": "0", "fontSize": "20px"},
+                ),
+                html.Div(
+                    "Processos Em Andamento", style={"fontSize": "15px"}
+                ),
             ],
         ),
         html.Div(
             className="card-resumo",
             style=card_style,
             children=[
-                html.H4(nao_concluidos, style={"margin": "0", "fontSize": "20px"}),
-                html.Div("Processos Não Concluídos", style={"fontSize": "15px"}),
+                html.H4(
+                    nao_concluidos,
+                    style={"margin": "0", "fontSize": "20px"},
+                ),
+                html.Div(
+                    "Processos Não Concluídos", style={"fontSize": "15px"}
+                ),
             ],
         ),
     ]
 
     # -------------------------
-    # Gráfico de status (pizza) + gráfico anual
+    # Gráficos
     # -------------------------
     if dff.empty:
         fig_status = px.pie(title="Porcentagem de Status")
@@ -729,6 +851,7 @@ def atualizar_tabela_proc(
             hole=0.6,
             title="Porcentagem de Status",
         )
+
         fig_status.update_traces(
             marker=dict(
                 colors=["#003A70", "#DA291C", "#A2AAAD"],
@@ -737,6 +860,7 @@ def atualizar_tabela_proc(
             textposition="outside",
             texttemplate="%{label} %{value} (%{percent:.2%})",
         )
+
         fig_status.update_layout(
             title_x=0.5,
             plot_bgcolor="#FFFFFF",
@@ -746,7 +870,6 @@ def atualizar_tabela_proc(
 
         # --- gráfico anual usa filtros exceto ano ---
         dff_global = df_proc_base.copy()
-
         mask_global = pd.Series(True, index=dff_global.index)
 
         if num_proc and str(num_proc).strip():
@@ -757,7 +880,9 @@ def atualizar_tabela_proc(
                 .str.contains(termo, case=False, na=False)
             )
         if mes_finalizacao:
-            mask_global &= dff_global["Mes_finalizacao"] == mes_finalizacao
+            mask_global &= (
+                dff_global["Mes_finalizacao"] == mes_finalizacao
+            )
         if solicitante:
             mask_global &= dff_global["Solicitante"] == solicitante
         if objeto:
@@ -773,13 +898,14 @@ def atualizar_tabela_proc(
             )
 
         dff_global = dff_global[mask_global]
-
         dff_conc_global = dff_global[
             dff_global["Status"] == "Concluído"
         ].copy()
 
         if dff_conc_global.empty:
-            fig_valor_mes = px.bar(title="Processos Concluídos por Ano")
+            fig_valor_mes = px.bar(
+                title="Processos Concluídos por Ano"
+            )
         else:
             grp_ano = (
                 dff_conc_global.groupby("Ano", as_index=False)
@@ -788,8 +914,10 @@ def atualizar_tabela_proc(
                     Qtd_Processos=("Numero do Processo", "count"),
                 )
             )
+
             grp_ano["Media_Por_Processo"] = (
-                grp_ano["Valor_Contratado_Total"] / grp_ano["Qtd_Processos"]
+                grp_ano["Valor_Contratado_Total"]
+                / grp_ano["Qtd_Processos"]
             )
 
             grp_ano["Valor_Contratado_Total_FMT"] = grp_ano[
@@ -814,7 +942,9 @@ def atualizar_tabela_proc(
                 ]
             ].values
 
-            fig_valor_mes = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_valor_mes = make_subplots(
+                specs=[[{"secondary_y": True}]]
+            )
 
             fig_valor_mes.add_trace(
                 go.Bar(
@@ -869,6 +999,7 @@ def atualizar_tabela_proc(
                     y=-0.2,
                     x=0.5,
                     xanchor="center",
+                    title_text="",  # remove texto da legenda
                 ),
             )
 
@@ -876,7 +1007,8 @@ def atualizar_tabela_proc(
                 title_text="Valores (R$)", secondary_y=False
             )
             fig_valor_mes.update_yaxes(
-                title_text="Número de Processos Concluídos", secondary_y=True
+                title_text="Número de Processos Concluídos",
+                secondary_y=True,
             )
 
     cols_tabela = [
@@ -901,10 +1033,11 @@ def atualizar_tabela_proc(
         fig_valor_mes,
     )
 
+# ----------------------------------------
+# Callback: filtros em cascata
+# ----------------------------------------
 
-# ----------------------------------------
-# Callback: filtros em cascata (ordem-invariante)
-# ----------------------------------------
+
 @dash.callback(
     Output("filtro_solicitante_proc", "options"),
     Output("filtro_objeto_proc", "options"),
@@ -933,7 +1066,6 @@ def atualizar_opcoes_filtros(
     A ordem de seleção dos filtros não importa.
     """
     dff = df_proc_base.copy()
-
     mask = pd.Series(True, index=dff.index)
 
     if ano:
@@ -960,35 +1092,42 @@ def atualizar_opcoes_filtros(
         for s in sorted(dff["Solicitante"].dropna().unique())
         if str(s) != ""
     ]
+
     op_objeto = [
         {"label": o, "value": o}
         for o in sorted(dff["Objeto"].dropna().unique())
         if str(o) != ""
     ]
+
     op_modalidade = [
         {"label": m, "value": m}
         for m in sorted(dff["Modalidade"].dropna().unique())
         if str(m) != ""
     ]
+
     op_status = [
         {"label": s, "value": s}
         for s in sorted(dff["Status"].dropna().unique())
         if str(s) != ""
     ]
+
     op_classif = [
         {"label": c, "value": c}
         for c in sorted(
-            dff["Classificação dos processos não concluídos"].dropna().unique()
+            dff["Classificação dos processos não concluídos"]
+            .dropna()
+            .unique()
         )
         if str(c) != ""
     ]
 
     return op_solicitante, op_objeto, op_modalidade, op_status, op_classif
 
+# ----------------------------------------
+# Callback: limpar filtros (volta sempre para ano 2025)
+# ----------------------------------------
 
-# ----------------------------------------
-# Callback: limpar filtros (volta sempre para ano atual)
-# ----------------------------------------
+
 @dash.callback(
     Output("filtro_num_proc", "value"),
     Output("filtro_ano_proc", "value"),
@@ -1003,35 +1142,35 @@ def atualizar_opcoes_filtros(
 )
 def limpar_filtros_proc(n):
     """
-    Limpa todos os filtros e retorna o ano para ANO_ATUAL.
+    Limpa todos os filtros e retorna o ano para ANO_PADRAO (2025).
     """
-    return None, ANO_ATUAL, None, None, None, None, None, None
-#Funções auxiliares de PDF e callback do relatório
+    return None, ANO_PADRAO, None, None, None, None, None, None
 
-# ========================================
-# FUNÇÕES AUXILIARES
-# ========================================
+# ====================================================
+# FUNÇÕES AUXILIARES PARA PDF – COMPRAS
+# (mantidas iguais ao arquivo original)
+# ====================================================
+
+
 def formatar_moeda(valor):
     """
     Formata um valor numérico como moeda brasileira (R$ X.XXX,XX).
     """
     try:
         valor_float = float(valor) if isinstance(valor, str) else valor
-        return f"R$ {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return (
+            f"R$ {valor_float:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
     except (ValueError, TypeError):
         return str(valor)
 
 
-# ========================================
-# FUNÇÕES PARA CARDS NO PDF – COMPRAS
-# ========================================
 def criar_card_elemento(titulo, valor, cor):
     """
     Cria um elemento de card para PDF.
-    Args:
-        titulo: Título do card
-        valor: Valor a exibir (já formatado)
-        cor: Cor hexadecimal para o valor (parâmetro documentado, pode ser usado após)
     """
     card_content = [
         [
@@ -1061,8 +1200,19 @@ def criar_card_elemento(titulo, valor, cor):
     card_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F5F5")),
-                ("BORDER", (0, 0), (-1, -1), 1, colors.HexColor("#DDDDDD")),
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, -1),
+                    colors.HexColor("#F5F5F5"),
+                ),
+                (
+                    "BORDER",
+                    (0, 0),
+                    (-1, -1),
+                    1,
+                    colors.HexColor("#DDDDDD"),
+                ),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -1078,8 +1228,6 @@ def criar_card_elemento(titulo, valor, cor):
 def criar_cards_resumo_pdf(story, df, pagesize):
     """
     Cria cards de resumo no PDF com os mesmos dados dos cards HTML.
-    Todos os 6 cards em uma única linha.
-    df aqui DEVE ser o dataframe numérico (sem formatar moeda).
     """
     df_num = df.copy()
     df_num["Valor Contratado"] = pd.to_numeric(
@@ -1145,6 +1293,7 @@ def criar_cards_resumo_pdf(story, df, pagesize):
             card_width,
         ],
     )
+
     cards_table.setStyle(
         TableStyle(
             [
@@ -1162,10 +1311,9 @@ def criar_cards_resumo_pdf(story, df, pagesize):
     story.append(cards_table)
     story.append(Spacer(1, 0.15 * inch))
 
+# Estilos PDF
 
-# ----------------------------------------
-# Estilos de texto para PDF (COMPRAS)
-# ----------------------------------------
+
 wrap_style_compras = ParagraphStyle(
     name="wrap_compras",
     fontSize=7,
@@ -1190,48 +1338,36 @@ header_cell_style_compras = ParagraphStyle(
 
 
 def wrap_pdf_compras(text):
-    """Retorna Paragraph com estilo wrap (quebra de texto)."""
     return Paragraph(str(text), wrap_style_compras)
 
 
 def simple_pdf_compras(text):
-    """Retorna Paragraph com estilo simples (centralizado)."""
     return Paragraph(str(text), simple_style_compras)
 
 
 def header_pdf_compras(text):
-    """Retorna Paragraph com estilo de cabeçalho (branco em fundo azul)."""
     return Paragraph(str(text), header_cell_style_compras)
 
+# Cabeçalho PDF – Compras
 
-# --------------------------------------------------
-# CABEÇALHO PADRÃO – COMPRAS
-# --------------------------------------------------
+
 def adicionar_cabecalho_compras(story, df, styles):
-    """
-    Cabeçalho: Logo esq | Instituição | Logo dir
-    + Título em preto
-    + Linha 'Total de registros'
-    Espelha o layout usado em Portarias.
-    """
-
-    # --------------------------------------------------
-    # Cabeçalho: Logo esq | Instituição | Logo dir
-    # --------------------------------------------------
     logo_esq = (
         Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
-        if os.path.exists("assets/brasaobrasil.png") else ""
+        if os.path.exists("assets/brasaobrasil.png")
+        else ""
     )
 
     logo_dir = (
         Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
-        if os.path.exists("assets/simbolo_RGB.png") else ""
+        if os.path.exists("assets/simbolo_RGB.png")
+        else ""
     )
 
     texto_instituicao = (
-        "<b><font color='#0b2b57' size=13>Ministério da Educação</font></b><br/>"
-        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
-        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+        "Ministério da Educação<br/>"
+        "Universidade Federal de Itajubá<br/>"
+        "Diretoria de Compras e Contratos"
     )
 
     instituicao = Paragraph(
@@ -1245,11 +1381,7 @@ def adicionar_cabecalho_compras(story, df, styles):
 
     cabecalho = Table(
         [[logo_esq, instituicao, logo_dir]],
-        colWidths=[
-            1.4 * inch,
-            4.2 * inch,
-            1.4 * inch,
-        ],
+        colWidths=[1.4 * inch, 4.2 * inch, 1.4 * inch],
     )
 
     cabecalho.setStyle(
@@ -1266,11 +1398,8 @@ def adicionar_cabecalho_compras(story, df, styles):
     story.append(cabecalho)
     story.append(Spacer(1, 0.25 * inch))
 
-    # --------------------------------------------------
-    # Título (compras)
-    # --------------------------------------------------
     titulo = Paragraph(
-        "RELATÓRIO DE PROCESSOS DE COMPRAS<br/>",
+        "RELATÓRIO DE PROCESSOS DE COMPRAS",
         ParagraphStyle(
             "titulo_compras",
             alignment=TA_CENTER,
@@ -1283,22 +1412,15 @@ def adicionar_cabecalho_compras(story, df, styles):
     story.append(titulo)
     story.append(Spacer(1, 0.2 * inch))
 
-    # --------------------------------------------------
-    # Total de registros
-    # --------------------------------------------------
     story.append(
         Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
     )
     story.append(Spacer(1, 0.15 * inch))
 
+# Tabela de dados no PDF
 
-# --------------------------------------------------
-# TABELA DE DADOS DO PROCESSO (COMPRAS)
-# --------------------------------------------------
+
 def criar_tabela_dados_compras(story, df, pagesize):
-    """
-    Cria tabela de dados de compras com cabeçalho azul (#0b2b57) e texto branco.
-    """
     if df.empty:
         return
 
@@ -1350,15 +1472,27 @@ def criar_tabela_dados_compras(story, df, pagesize):
     col_widths = col_widths[: len(cols)]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
+
     style_list = [
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+        (
+            "BACKGROUND",
+            (0, 0),
+            (-1, 0),
+            colors.HexColor("#0b2b57"),
+        ),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
         ("FONTSIZE", (0, 0), (-1, 0), 7),
         ("FONTWEIGHT", (0, 0), (-1, 0), "bold"),
         ("TOPPADDING", (0, 0), (-1, 0), 8),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-        ("LINEBELOW", (0, 0), (-1, 0), 1.5, colors.HexColor("#0b2b57")),
+        (
+            "LINEBELOW",
+            (0, 0),
+            (-1, 0),
+            1.5,
+            colors.HexColor("#0b2b57"),
+        ),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (0, 1), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -1380,10 +1514,11 @@ def criar_tabela_dados_compras(story, df, pagesize):
     tbl.setStyle(TableStyle(style_list))
     story.append(tbl)
 
-
 # --------------------------------------------------
 # CALLBACK: GERAR PDF DE PROCESSOS DE COMPRAS
 # --------------------------------------------------
+
+
 @dash.callback(
     Output("download_relatorio_proc", "data"),
     Input("btn_download_relatorio_proc", "n_clicks"),
@@ -1393,7 +1528,6 @@ def criar_tabela_dados_compras(story, df, pagesize):
 def gerar_pdf_proc(n, dados_proc):
     """
     Gera o relatório em PDF com base nos dados filtrados atualmente na tabela.
-    Usa o mesmo cabeçalho de Portarias (logo esq | instituição | logo dir + título + total de registros).
     """
     if not n or not dados_proc:
         return None
@@ -1406,11 +1540,12 @@ def gerar_pdf_proc(n, dados_proc):
         df_cards["Valor Contratado"], errors="coerce"
     ).fillna(0)
 
-    # Dataframe para a tabela do PDF (valores já formatados)
+    # Dataframe para tabela do PDF
     df_pdf = df.copy()
     df_pdf["PREÇO ESTIMADO"] = df_pdf["PREÇO ESTIMADO"].apply(formatar_moeda)
-    df_pdf["Valor Contratado"] = df_pdf["Valor Contratado"].apply(formatar_moeda)
-
+    df_pdf["Valor Contratado"] = df_pdf["Valor Contratado"].apply(
+        formatar_moeda
+    )
     df_pdf["Data de Entrada"] = pd.to_datetime(
         df_pdf["Data de Entrada"], format="%d/%m/%Y", errors="coerce"
     ).dt.strftime("%d/%m/%Y")
@@ -1420,7 +1555,6 @@ def gerar_pdf_proc(n, dados_proc):
 
     buffer = BytesIO()
     pagesize = landscape(A4)
-
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
@@ -1433,13 +1567,8 @@ def gerar_pdf_proc(n, dados_proc):
     styles = getSampleStyleSheet()
     story = []
 
-    # ================= CABEÇALHO PADRÃO =================
     adicionar_cabecalho_compras(story, df_pdf, styles)
-
-    # ================= CARDS DE RESUMO ==================
     criar_cards_resumo_pdf(story, df_cards, pagesize)
-
-    # ================= TABELA DE DADOS ==================
     criar_tabela_dados_compras(story, df_pdf, pagesize)
 
     doc.build(story)
