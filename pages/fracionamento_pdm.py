@@ -748,9 +748,9 @@ def gerar_pdf_limite_itajuba_pdm(n, dados):
     )
 
     texto_instituicao = (
-        "Ministério da Educação"
-        "Universidade Federal de Itajubá"
-        "Diretoria de Compras e Contratos"
+        "<b><font color='#0b2b57' size=13>Ministério da Educação</font></b><br/>"
+        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
+        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
     )
 
     instituicao = Paragraph(
