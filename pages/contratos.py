@@ -864,4 +864,6 @@ def gerar_pdf_contratos(n, dados_contratos):
     doc.build(story)
     buffer.seek(0)
 
-    return dcc.send_bytes(buffer.getvalue(), "relatorio_contratos.pdf")
+    return dcc.send_bytes(
+        buffer.getvalue(), 
+        f"relatorio_contratos_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"),

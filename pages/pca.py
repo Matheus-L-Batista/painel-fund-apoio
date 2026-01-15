@@ -1286,5 +1286,5 @@ def gerar_pdf_pca(n, dados_processos, dados_planejamento):
     buffer.seek(0)
 
     return dcc.send_bytes(
-        buffer.getvalue(), f"relatorio_pca_{data_hora_brasilia}.pdf"
+        f"relatorio_pca_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     )

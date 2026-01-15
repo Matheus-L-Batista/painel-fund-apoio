@@ -840,5 +840,5 @@ def gerar_pdf_limite_itajuba(n, dados):
 
     return dcc.send_bytes(
         buffer.getvalue(),
-        "limite_gasto_itajuba_catser.pdf",
+        f"limite_gasto_itajuba_catser_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf",
     )

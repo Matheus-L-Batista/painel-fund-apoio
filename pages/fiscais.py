@@ -875,4 +875,6 @@ def gerar_pdf_fiscais(n, dados_fis):
     doc.build(story)
     buffer.seek(0)
 
-    return dcc.send_bytes(buffer.getvalue(), "fiscais.pdf")
+    return dcc.send_bytes(
+        buffer.getvalue(), 
+         f"fiscais_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"),

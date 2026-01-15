@@ -790,5 +790,5 @@ def gerar_pdf_port(n, dados_port):
 
     return dcc.send_bytes(
         buffer.getvalue(),
-        "relatorio_portarias.pdf",
+          f"relatorio_portarias_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf",
     )
