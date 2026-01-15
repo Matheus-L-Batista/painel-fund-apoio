@@ -18,12 +18,11 @@ from reportlab.platypus import (
     TableStyle,
     Image,
 )
+
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib import colors
-
 import os
-
 
 # --------------------------------------------------
 # Registro da página
@@ -35,7 +34,6 @@ dash.register_page(
     name="Fracionamento de Despesas CATSER",
     title="Fracionamento de Despesas CATSER",
 )
-
 
 # --------------------------------------------------
 # URL da planilha
@@ -56,10 +54,10 @@ DATA_HOJE = date.today().strftime("%d/%m/%Y")
 # Limite da dispensa 2026
 VALOR_LIMITE_2026 = 65492.11
 
-
 # --------------------------------------------------
 # Carga e tratamento dos dados
 # --------------------------------------------------
+
 
 def carregar_dados_limite():
     df = pd.read_csv(URL_LIMITE_GASTO_ITA)
@@ -95,7 +93,9 @@ def carregar_dados_limite():
     # Usa o limite de 2026
     valor_limite = VALOR_LIMITE_2026
     df["Limite da Dispensa"] = valor_limite
-    df["Saldo para contratação"] = df["Limite da Dispensa"] - df["Valor Empenhado"]
+    df["Saldo para contratação"] = (
+        df["Limite da Dispensa"] - df["Valor Empenhado"]
+    )
 
     df = df.rename(columns={COL_DESC_ORIG: "Descrição"})
 
@@ -104,10 +104,13 @@ def carregar_dados_limite():
 
 df_limite_base = carregar_dados_limite()
 
+# NÃO considerar o CATSER 00000 na lista
 CATSERS_UNICOS = sorted(
     c
     for c in df_limite_base[COL_CATSER].dropna().unique()
-    if isinstance(c, str) and c.strip() != ""
+    if isinstance(c, str)
+    and c.strip() != ""
+    and c.strip() != "00000"  # exclui 00000
 )
 
 dropdown_style = {
@@ -116,7 +119,6 @@ dropdown_style = {
     "marginBottom": "6px",
     "whiteSpace": "normal",
 }
-
 
 # --------------------------------------------------
 # Layout
@@ -128,7 +130,10 @@ layout = html.Div(
         "flexDirection": "row",
         "width": "100%",
         "gap": "10px",
-        "background": "linear-gradient(to bottom, #f5f5f5 0, #f5f5f5 33%, white 33%, white 100%)",
+        "background": (
+            "linear-gradient(to bottom, #f5f5f5 0, #f5f5f5 33%, "
+            "white 33%, white 100%)"
+        ),
     },
     children=[
         # Coluna esquerda
@@ -148,28 +153,32 @@ layout = html.Div(
                 html.Br(),
                 html.P(
                     "Em atenção ao acórdão nº 324/2009 Plenário TCU, "
-                    "“Planeje adequadamente as compras e a contratação de serviços durante o "
-                    "exercício financeiro, de forma a evitar a prática de fracionamento de despesas”."
+                    "“Planeje adequadamente as compras e a contratação de "
+                    "serviços durante o exercício financeiro, de forma a "
+                    "evitar a prática de fracionamento de despesas”."
                 ),
                 html.Br(),
                 html.P("Assim dispõe a IN SEGES/ME nº 67/2021:"),
                 html.Br(),
                 html.P(
-                    "Art. 4º Os órgãos e entidades adotarão a dispensa de licitação, na forma "
-                    "eletrônica, nas seguintes hipóteses:"
+                    "Art. 4º Os órgãos e entidades adotarão a dispensa de "
+                    "licitação, na forma eletrônica, nas seguintes hipóteses:"
                 ),
                 html.P(
-                    "[...] § 2º Considera-se ramo de atividade a linha de fornecimento registrada "
-                    "pelo fornecedor quando do seu cadastramento no Sistema de Cadastramento "
-                    "Unificado de Fornecedores (Sicaf), vinculada:"
+                    "[...] § 2º Considera-se ramo de atividade a linha de "
+                    "fornecimento registrada pelo fornecedor quando do seu "
+                    "cadastramento no Sistema de Cadastramento Unificado de "
+                    "Fornecedores (Sicaf), vinculada:"
                 ),
                 html.P(
-                    "I - à classe de materiais, utilizando o Padrão Descritivo de Materiais (PDM) do "
-                    "Sistema de Catalogação de Material do Governo federal; ou"
+                    "I - à classe de materiais, utilizando o Padrão "
+                    "Descritivo de Materiais (PDM) do Sistema de Catalogação "
+                    "de Material do Governo federal; ou"
                 ),
                 html.P(
-                    "II - à descrição dos serviços ou das obras, constante do Sistema de Catalogação "
-                    "de Serviços ou de Obras do Governo federal. (NR)"
+                    "II - à descrição dos serviços ou das obras, constante do "
+                    "Sistema de Catalogação de Serviços ou de Obras do "
+                    "Governo federal. (NR)"
                 ),
                 html.Br(),
                 html.P("Em resumo: Para materiais - PDM; para serviços - CATSER."),
@@ -190,26 +199,31 @@ layout = html.Div(
                         "retornará os dados do serviço. Esse é o número que deverá ser considerado.",
                     ]
                 ),
+
+
                 html.Br(),
                 html.P("Exemplo para a necessidade de contratação de três itens:"),
                 html.P(
-                    "1) o somatório do valor obtido na pesquisa de mercado para cada um dos itens "
-                    "multiplicado por seu quantitativo não poderá exceder o limite da dispensa."
+                    "1) o somatório do valor obtido na pesquisa de mercado para "
+                    "cada um dos itens multiplicado por seu quantitativo não "
+                    "poderá exceder o limite da dispensa."
                 ),
                 html.P(
-                    "2) O valor por item deverá obrigatoriamente ser igual ou inferior ao saldo para "
-                    "contratação (PDM ou CATSER) desse item."
-                ),
-                html.Br(),
-                html.P(
-                    "Os valores informados na tabela são os já empenhados no exercício por PDM ou CATSER."
+                    "2) O valor por item deverá obrigatoriamente ser igual ou "
+                    "inferior ao saldo para contratação (PDM ou CATSER) desse item."
                 ),
                 html.Br(),
                 html.P(
-                    "O processo de compra deverá vir instruído já na modalidade DISPENSA DE LICITAÇÃO. "
-                    "A tela de consulta (Relatório PDF) deverá estar apensado ao processo, que será "
-                    "conferido pelo Setor de Compras e, somente a partir do resultado dessa conferência, "
-                    "o processo prosseguirá.",
+                    "Os valores informados na tabela são os já empenhados no "
+                    "exercício por PDM ou CATSER."
+                ),
+                html.Br(),
+                html.P(
+                    "O processo de compra deverá vir instruído já na modalidade "
+                    "DISPENSA DE LICITAÇÃO. A tela de consulta (Relatório PDF) "
+                    "deverá estar apensado ao processo, que será conferido pelo "
+                    "Setor de Compras e, somente a partir do resultado dessa "
+                    "conferência, o processo prosseguirá.",
                     style={"color": "red"},
                 ),
             ],
@@ -331,13 +345,15 @@ layout = html.Div(
                                             style={"margin": "0px"},
                                         ),
                                         html.Div(
-                                            [
+                                            children=[
                                                 html.Span(
-                                                    "O valor global do processo de compra não poderá exceder esse limite."
+                                                    "O valor global do processo de compra "
+                                                    "não poderá exceder esse limite."
                                                 ),
                                                 html.Br(),
                                                 html.Span(
-                                                    "O valor de cada item não poderá exceder o Saldo para Contratação."
+                                                    "O valor de cada item não poderá exceder "
+                                                    "o Saldo para Contratação."
                                                 ),
                                             ],
                                             style={
@@ -523,10 +539,10 @@ layout = html.Div(
     ],
 )
 
-
 # --------------------------------------------------
 # Callbacks
 # --------------------------------------------------
+
 
 @dash.callback(
     Output("filtro_catser_dropdown_itajuba", "options"),
@@ -547,7 +563,9 @@ def atualizar_opcoes_catser(catser_texto, valores_selecionados):
                 if v in base and v not in filtradas:
                     filtradas.append(v)
 
-        opcoes = [{"label": c, "value": c} for c in sorted(filtradas)]
+        opcoes = [
+            {"label": c, "value": c} for c in sorted(filtradas)
+        ]
 
     return opcoes
 
@@ -559,6 +577,9 @@ def atualizar_opcoes_catser(catser_texto, valores_selecionados):
 )
 def atualizar_tabela_limite_itajuba(catser_lista):
     dff = df_limite_base.copy()
+
+    # Remove sempre o CATSER 00000 da tabela
+    dff = dff[dff[COL_CATSER] != "00000"]
 
     # Filtro SOMENTE pela checklist
     if catser_lista:
@@ -582,15 +603,18 @@ def atualizar_tabela_limite_itajuba(catser_lista):
         if pd.isna(v):
             return ""
         return "R$ " + (
-            f"{v:,.2f}"
-            .replace(",", "X")
-            .replace(".", ",")
-            .replace("X", ".")
+            f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
 
-    dff_display["Valor Empenhado_fmt"] = dff_display["Valor Empenhado"].apply(fmt_moeda)
-    dff_display["Limite da Dispensa_fmt"] = dff_display["Limite da Dispensa"].apply(fmt_moeda)
-    dff_display["Saldo para contratação_fmt"] = dff_display["Saldo para contratação"].apply(fmt_moeda)
+    dff_display["Valor Empenhado_fmt"] = dff_display[
+        "Valor Empenhado"
+    ].apply(fmt_moeda)
+    dff_display["Limite da Dispensa_fmt"] = dff_display[
+        "Limite da Dispensa"
+    ].apply(fmt_moeda)
+    dff_display["Saldo para contratação_fmt"] = dff_display[
+        "Saldo para contratação"
+    ].apply(fmt_moeda)
 
     cols_tabela_display = [
         COL_CATSER,
@@ -615,7 +639,6 @@ def atualizar_tabela_limite_itajuba(catser_lista):
 )
 def limpar_filtros_limite_itajuba(n):
     return None, []
-
 
 # --------------------------------------------------
 # PDF
@@ -658,9 +681,11 @@ def gerar_pdf_limite_itajuba(n, dados):
 
     df = pd.DataFrame(dados)
 
+    # Garante também no PDF que o CATSER 00000 não apareça
+    df = df[df[COL_CATSER] != "00000"]
+
     buffer = BytesIO()
     pagesize = landscape(A4)
-
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesize,
@@ -679,35 +704,42 @@ def gerar_pdf_limite_itajuba(n, dados):
 
     story.append(
         Table(
-            [[Paragraph(
-                data_hora,
-                ParagraphStyle(
-                    "data_topo",
-                    fontSize=9,
-                    alignment=TA_RIGHT,
-                    textColor="#333333",
-                ),
-            )]],
+            [
+                [
+                    Paragraph(
+                        data_hora,
+                        ParagraphStyle(
+                            "data_topo",
+                            fontSize=9,
+                            alignment=TA_RIGHT,
+                            textColor="#333333",
+                        ),
+                    )
+                ]
+            ],
             colWidths=[pagesize[0] - 0.6 * inch],
         )
     )
+
     story.append(Spacer(1, 0.15 * inch))
 
     # Cabeçalho: Logo | Texto | Logo
     logo_esq = (
         Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
-        if os.path.exists("assets/brasaobrasil.png") else ""
+        if os.path.exists("assets/brasaobrasil.png")
+        else ""
     )
 
     logo_dir = (
         Image("assets/simbolo_RGB.png", 1.2 * inch, 1.2 * inch)
-        if os.path.exists("assets/simbolo_RGB.png") else ""
+        if os.path.exists("assets/simbolo_RGB.png")
+        else ""
     )
 
     texto_instituicao = (
-        "<b><font color='#0b2b57' size=13>Ministério da Educação</font></b><br/>"
-        "<b><font color='#0b2b57' size=13>Universidade Federal de Itajubá</font></b><br/>"
-        "<font color='#0b2b57' size=11>Diretoria de Compras e Contratos</font>"
+        "Ministério da Educação"
+        "Universidade Federal de Itajubá"
+        "Diretoria de Compras e Contratos"
     )
 
     instituicao = Paragraph(
@@ -721,20 +753,18 @@ def gerar_pdf_limite_itajuba(n, dados):
 
     cabecalho = Table(
         [[logo_esq, instituicao, logo_dir]],
-        colWidths=[
-            1.4 * inch,
-            4.2 * inch,
-            1.4 * inch,
-        ],
+        colWidths=[1.4 * inch, 4.2 * inch, 1.4 * inch],
     )
 
     cabecalho.setStyle(
-        TableStyle([
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ])
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
     )
 
     story.append(cabecalho)
@@ -743,8 +773,8 @@ def gerar_pdf_limite_itajuba(n, dados):
     # Título
     titulo = Paragraph(
         "Consulta ao Fracionamento de Despesa 2026 - CATSER (Serviço): "
-        "UASG: 153030 - Campus Itajubá<br/>",
-        ParagraphStyle(
+        "UASG: 153030 - Campus Itajubá",
+    ParagraphStyle(
             "titulo",
             alignment=TA_CENTER,
             fontSize=10,
@@ -759,6 +789,7 @@ def gerar_pdf_limite_itajuba(n, dados):
     story.append(
         Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
     )
+
     story.append(Spacer(1, 0.15 * inch))
 
     # Tabela
@@ -778,10 +809,7 @@ def gerar_pdf_limite_itajuba(n, dados):
         if pd.isna(v):
             return ""
         return "R$ " + (
-            f"{v:,.2f}"
-            .replace(",", "X")
-            .replace(".", ",")
-            .replace("X", ".")
+            f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         )
 
     df_pdf = df.copy()
@@ -814,8 +842,13 @@ def gerar_pdf_limite_itajuba(n, dados):
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTSIZE", (0, 0), (-1, -1), 7),
-        # Linhas alternadas: branca e cinza-claro (a partir da linha 1, pois 0 é o cabeçalho)
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.whitesmoke]),
+        # Linhas alternadas: branca e cinza-claro (a partir da linha 1)
+        (
+            "ROWBACKGROUNDS",
+            (0, 1),
+            (-1, -1),
+            [colors.white, colors.whitesmoke],
+        ),
     ]
 
     # Descrição alinhada à esquerda
@@ -826,15 +859,25 @@ def gerar_pdf_limite_itajuba(n, dados):
     for i, saldo in enumerate(saldo_values, 1):
         if saldo <= 0:
             table_styles.append(
-                ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#ffcccc"))
+                (
+                    "BACKGROUND",
+                    (0, i),
+                    (-1, i),
+                    colors.HexColor("#ffcccc"),
+                )
             )
             table_styles.append(
-                ("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#cc0000"))
+                (
+                    "TEXTCOLOR",
+                    (0, i),
+                    (-1, i),
+                    colors.HexColor("#cc0000"),
+                )
             )
 
     tbl.setStyle(TableStyle(table_styles))
-    story.append(tbl)
 
+    story.append(tbl)
     doc.build(story)
     buffer.seek(0)
 
