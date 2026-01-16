@@ -398,7 +398,45 @@ layout = html.Div(
                 ),
             ],
         ),
-        # OBJETO
+        # VALORES (agora vem ANTES do Objeto)
+        html.Div(
+            style={
+                "flex": "1 1 100%",
+                "minWidth": "300px",
+                "position": "relative",
+                "zIndex": 1,
+                "marginTop": "0px",
+            },
+            children=[
+                dash_table.DataTable(
+                    id="tabela_extrato_valores",
+                    columns=[{"name": col, "id": col} for col in cols_contrato_valores],
+                    data=[],
+                    fixed_rows={"headers": True},
+                    style_table={
+                        "overflowX": "auto",
+                        "overflowY": "auto",
+                        "maxHeight": "280px",
+                        "width": "100%",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
+                    style_cell={
+                        "textAlign": "center",
+                        "padding": "6px",
+                        "fontSize": "12px",
+                        "whiteSpace": "normal",
+                    },
+                    style_header={
+                        "fontWeight": "bold",
+                        "backgroundColor": "#d9d9d9",
+                        "color": "black",
+                        "textAlign": "center",
+                    },
+                ),
+            ],
+        ),
+        # OBJETO (logo DEPOIS dos valores)
         html.Div(
             style={
                 "flex": "1 1 100%",
@@ -437,7 +475,7 @@ layout = html.Div(
                 ),
             ],
         ),
-        # VALORES
+        # COMPRASNET – tabela abaixo do Objeto
         html.Div(
             style={
                 "flex": "1 1 100%",
@@ -448,14 +486,20 @@ layout = html.Div(
             },
             children=[
                 dash_table.DataTable(
-                    id="tabela_extrato_valores",
-                    columns=[{"name": col, "id": col} for col in cols_contrato_valores],
+                    id="tabela_extrato_comprasnet",
+                    columns=[
+                        {
+                            "name": "Comprasnet",
+                            "id": "Comprasnet_link",
+                            "presentation": "markdown",
+                        }
+                    ],
                     data=[],
                     fixed_rows={"headers": True},
                     style_table={
                         "overflowX": "auto",
                         "overflowY": "auto",
-                        "maxHeight": "280px",
+                        "maxHeight": "80px",
                         "width": "100%",
                         "position": "relative",
                         "zIndex": 1,
@@ -818,7 +862,7 @@ def gerar_pdf_relatorio_extrato(
         )
         story.append(tabela)
 
-    # Valores com formatação moeda
+    # Valores
     if not df_valores.empty:
         story.append(
             Paragraph(
@@ -909,7 +953,7 @@ def gerar_pdf_relatorio_extrato(
         )
         story.append(tabela)
 
-    # Garantia com formatação moeda
+    # Garantia
     if not df_garantia.empty:
         story.append(
             Paragraph(
@@ -957,7 +1001,7 @@ def gerar_pdf_relatorio_extrato(
         )
         story.append(tabela)
 
-    # Evolução em segunda página
+    # Evolução
     if not df_evolucao.empty:
         story.append(PageBreak())
         story.append(
@@ -1021,27 +1065,44 @@ def gerar_pdf_relatorio_extrato(
     Output("tabela_extrato_fiscalizacao", "data"),
     Output("tabela_extrato_garantia", "data"),
     Output("tabela_extrato_evolucao", "data"),
+    Output("tabela_extrato_comprasnet", "data"),
     Output("valor_numero_contrato", "children"),
     Input("filtro_contrato_extrato", "value"),
 )
 def atualizar_tabelas_extrato_cb(contrato):
     if not contrato:
-        return [], [], [], [], [], [], ""
+        return [], [], [], [], [], [], [], ""
     dff = df_extrato_base[
         df_extrato_base["Contrato"].astype(str)
         .str.contains(str(contrato).strip(), case=False, na=False)
     ]
     if dff.empty:
-        return [], [], [], [], [], [], ""
+        return [], [], [], [], [], [], [], ""
 
     dff_sorted = dff.copy()
 
     df_info = dff_sorted[cols_contrato_info].head(1)
+
+    # VALORES -> moeda
+    df_valores = dff_sorted[cols_contrato_valores].head(1).copy()
+    for col in ["Valor original", "Acrésc/Supressões", "Valor atualizado"]:
+        if col in df_valores.columns:
+            df_valores[col] = df_valores[col].apply(formatar_moeda)
+
     df_objeto = dff_sorted[["Objeto"]].head(1)
-    df_valores = dff_sorted[cols_contrato_valores].head(1)
+
+    # COMPRASNET como link (Markdown)
+    df_comp = dff_sorted[["Comprasnet"]].head(1).copy()
+    df_comp["Comprasnet_link"] = df_comp["Comprasnet"].apply(
+        lambda x: f"[{x}]({x})" if isinstance(x, str) and x.strip() else ""
+    )
 
     df_fisc = gerar_grupo_fiscalizacao(dff_sorted, 0)
-    df_garan = dff_sorted[cols_garantia].head(1)
+
+    df_garan = dff_sorted[cols_garantia].head(1).copy()
+    for col in ["Base de cálculo", "Cobertura", "Valor contratado"]:
+        if col in df_garan.columns:
+            df_garan[col] = df_garan[col].apply(formatar_moeda)
 
     lista_evol = []
     for i in range(1, 13):
@@ -1063,6 +1124,7 @@ def atualizar_tabelas_extrato_cb(contrato):
         df_evol_all[["Tipo", "Vigência", "Valor_fmt", "Valor Atualizado_fmt"]].to_dict(
             "records"
         ),
+        df_comp[["Comprasnet_link"]].to_dict("records"),
         dff_sorted["Contrato"].iloc[0],
     )
 
