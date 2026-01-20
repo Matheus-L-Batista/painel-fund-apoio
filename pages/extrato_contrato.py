@@ -255,40 +255,64 @@ layout = html.Div(
                 "position": "relative",
                 "zIndex": 1100,
                 "backgroundColor": "white",
+                "padding": "10px",
+                "borderBottom": "1px solid #ddd",
             },
             children=[
                 html.Div(
                     style={
                         "display": "flex",
                         "flexWrap": "wrap",
-                        "gap": "10px",
+                        "gap": "15px",
                         "alignItems": "flex-start",
                     },
                     children=[
+                        # Filtro por Contrato
                         html.Div(
-                            style={"minWidth": "240px", "flex": "1 1 260px"},
+                            style={"minWidth": "250px", "flex": "1 1 250px"},
                             children=[
-                                html.Label("Contrato"),
-                                dcc.Input(
+                                html.Label("Contrato", style={"fontWeight": "bold", "marginBottom": "5px"}),
+                                dcc.Dropdown(
                                     id="filtro_contrato_extrato",
-                                    type="text",
-                                    placeholder="Digite o número do contrato",
-                                    style={
-                                        "width": "100%",
-                                        "marginBottom": "6px",
-                                        "height": "32px",
-                                    },
+                                    options=[
+                                        {"label": str(contrato), "value": str(contrato)}
+                                        for contrato in sorted(df_extrato_base["Contrato"].dropna().unique())
+                                    ],
+                                    placeholder="Selecione um contrato...",
+                                    clearable=True,
+                                    style={"width": "100%"},
+                                ),
+                            ],
+                        ),
+                        
+                        # Filtro por Objeto
+                        html.Div(
+                            style={"minWidth": "300px", "flex": "2 1 300px"},
+                            children=[
+                                html.Label("Objeto", style={"fontWeight": "bold", "marginBottom": "5px"}),
+                                dcc.Dropdown(
+                                    id="filtro_objeto_extrato",
+                                    options=[
+                                        {"label": str(objeto)[:100] + "..." if len(str(objeto)) > 100 else str(objeto), 
+                                         "value": str(objeto)}
+                                        for objeto in sorted(df_extrato_base["Objeto"].dropna().unique())
+                                    ],
+                                    placeholder="Busque pelo objeto do contrato...",
+                                    clearable=True,
+                                    style={"width": "100%"},
                                 ),
                             ],
                         ),
                     ],
                 ),
+                
+                # Botões de ação
                 html.Div(
                     style={
                         "display": "flex",
                         "alignItems": "center",
                         "justifyContent": "space-between",
-                        "marginTop": "6px",
+                        "marginTop": "15px",
                         "flexWrap": "wrap",
                         "gap": "10px",
                     },
@@ -310,6 +334,14 @@ layout = html.Div(
                                 dcc.Download(id="download_relatorio_extrato"),
                             ],
                         ),
+                        html.Div(
+                            id="info_filtros",
+                            style={
+                                "fontSize": "12px",
+                                "color": "#666",
+                                "fontStyle": "italic",
+                            },
+                        ),
                     ],
                 ),
             ],
@@ -320,8 +352,9 @@ layout = html.Div(
             style={
                 "display": "flex",
                 "flexDirection": "column",
-                "gap": "0px",
+                "gap": "20px",
                 "marginTop": "10px",
+                "padding": "0 10px",
             },
             children=[
                 # Cartão Contrato
@@ -329,10 +362,10 @@ layout = html.Div(
                     id="card_numero_contrato",
                     style={
                         "marginTop": "10px",
-                        "padding": "10px 0",
+                        "padding": "15px 0",
                         "backgroundColor": "#0b2b57",
                         "border": "2px solid #0b2b57",
-                        "borderRadius": "4px",
+                        "borderRadius": "6px",
                         "width": "100%",
                         "textAlign": "center",
                         "color": "white",
@@ -340,227 +373,237 @@ layout = html.Div(
                     children=[
                         html.Span(
                             "Contrato ",
-                            style={"fontSize": "14px", "marginRight": "5px"},
+                            style={"fontSize": "16px", "marginRight": "5px"},
                         ),
                         html.Span(
                             id="valor_numero_contrato",
-                            style={"fontSize": "22px", "fontWeight": "bold"},
+                            style={"fontSize": "24px", "fontWeight": "bold"},
                         ),
                     ],
                 ),
 
-                # INFORMAÇÕES
+                # INFORMAÇÕES DO CONTRATO
                 html.Div(
                     style={
-                        "flex": "1 1 100%",
-                        "minWidth": "300px",
-                        "position": "relative",
-                        "zIndex": 1,
-                        "marginTop": "0px",
-                    },
-                    children=[
-                        dash_table.DataTable(
-                            id="tabela_extrato_info",
-                            columns=[{"name": col, "id": col} for col in cols_contrato_info],
-                            data=[],
-                            fixed_rows={"headers": True},
-                            style_table={
-                                "overflowX": "auto",
-                                "overflowY": "auto",
-                                "maxHeight": "280px",
-                                "width": "100%",
-                                "position": "relative",
-                                "zIndex": 1,
-                            },
-                            style_cell={
-                                "textAlign": "center",
-                                "padding": "6px",
-                                "fontSize": "12px",
-                                "whiteSpace": "normal",
-                            },
-                            style_header={
-                                "fontWeight": "bold",
-                                "backgroundColor": "#d9d9d9",
-                                "color": "black",
-                                "textAlign": "center",
-                            },
-                        ),
-                    ],
-                ),
-
-                # VALORES
-                html.Div(
-                    style={
-                        "flex": "1 1 100%",
-                        "minWidth": "300px",
-                        "position": "relative",
-                        "zIndex": 1,
-                        "marginTop": "0px",
-                    },
-                    children=[
-                        dash_table.DataTable(
-                            id="tabela_extrato_valores",
-                            columns=[{"name": col, "id": col} for col in cols_contrato_valores],
-                            data=[],
-                            fixed_rows={"headers": True},
-                            style_table={
-                                "overflowX": "auto",
-                                "overflowY": "auto",
-                                "maxHeight": "280px",
-                                "width": "100%",
-                                "position": "relative",
-                                "zIndex": 1,
-                            },
-                            style_cell={
-                                "textAlign": "center",
-                                "padding": "6px",
-                                "fontSize": "12px",
-                                "whiteSpace": "normal",
-                            },
-                            style_header={
-                                "fontWeight": "bold",
-                                "backgroundColor": "#d9d9d9",
-                                "color": "black",
-                                "textAlign": "center",
-                            },
-                        ),
-                    ],
-                ),
-
-                # OBJETO E COMPRASNET NA MESMA LINHA
-                html.Div(
-                    style={
-                        "display": "flex",
-                        "gap": "0px",
                         "width": "100%",
                         "position": "relative",
                         "zIndex": 1,
-                        "marginTop": "0px",
-                    },
-                    children=[
-                        # OBJETO (3/4)
-                        html.Div(
-                            style={
-                                "flex": "3",
-                                "minWidth": "0",
-                                "position": "relative",
-                                "zIndex": 1,
-                            },
-                            children=[
-                                dash_table.DataTable(
-                                    id="tabela_extrato_objeto",
-                                    columns=[{"name": "Objeto", "id": "Objeto"}],
-                                    data=[],
-                                    fixed_rows={"headers": True},
-                                    style_table={
-                                        "overflowX": "auto",
-                                        "overflowY": "auto",
-                                        "maxHeight": "280px",
-                                        "width": "100%",
-                                        "position": "relative",
-                                        "zIndex": 1,
-                                    },
-                                    style_cell={
-                                        "textAlign": "left",
-                                        "padding": "8px",
-                                        "fontSize": "12px",
-                                        "whiteSpace": "normal",
-                                        "minWidth": "100%",
-                                    },
-                                    style_header={
-                                        "fontWeight": "bold",
-                                        "backgroundColor": "#d9d9d9",
-                                        "color": "black",
-                                        "textAlign": "center",
-                                    },
-                                ),
-                            ],
-                        ),
-                        # COMPRASNET (1/4)
-                        html.Div(
-                            style={
-                                "flex": "1",
-                                "minWidth": "0",
-                                "position": "relative",
-                                "zIndex": 1,
-                            },
-                            children=[
-                                dash_table.DataTable(
-                                    id="tabela_extrato_comprasnet",
-                                    columns=[{
-                                        "name": "",
-                                        "id": "Comprasnet_link",
-                                        "presentation": "markdown",
-                                    }],
-                                    data=[],
-                                    fixed_rows={"headers": True},
-                                    style_table={
-                                        "overflowX": "auto",
-                                        "overflowY": "auto",
-                                        "maxHeight": "280px",
-                                        "width": "100%",
-                                        "position": "relative",
-                                        "zIndex": 1,
-                                    },
-                                    style_cell={
-                                        "textAlign": "center",
-                                        "padding": "6px",
-                                        "fontSize": "12px",
-                                        "whiteSpace": "normal",
-                                        "height": "50px",
-                                        "verticalAlign": "middle",
-                                    },
-                                    style_header={
-                                        "fontWeight": "bold",
-                                        "backgroundColor": "#d9d9d9",
-                                        "color": "black",
-                                        "textAlign": "center",
-                                    },
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-
-                # FISCALIZAÇÃO - NOVO FORMATO OTIMIZADO (COLUNAS DINÂMICAS COM NOME VAZIO)
-                html.Div(
-                    style={
-                        "flex": "1 1 100%",
-                        "minWidth": "300px",
-                        "position": "relative",
-                        "zIndex": 1,
-                        "marginTop": "0px",
                     },
                     children=[
                         html.H4(
-                            "Equipe de Fiscalização do Contrato",
+                            "INFORMAÇÕES DO CONTRATO",
                             style={
                                 "textAlign": "center",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-                                "padding": "6px 0",
+                                "padding": "8px 0",
                                 "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
+                            },
+                        ),
+                        dash_table.DataTable(
+                            id="tabela_extrato_info",
+                            columns=[{"name": col, "id": col} for col in cols_contrato_info],
+                            data=[],
+                            style_table={
+                                "overflowX": "auto",
+                                "width": "100%",
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
+                            },
+                            style_cell={
+                                "textAlign": "center",
+                                "padding": "8px",
+                                "fontSize": "13px",
+                                "whiteSpace": "normal",
+                            },
+                            style_header={
+                                "fontWeight": "bold",
+                                "backgroundColor": "#f0f0f0",
+                                "color": "black",
+                                "textAlign": "center",
+                            },
+                        ),
+                    ],
+                ),
+
+                # VALORES DO CONTRATO
+                html.Div(
+                    style={
+                        "width": "100%",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
+                    children=[
+                        html.H4(
+                            "VALORES DO CONTRATO",
+                            style={
+                                "textAlign": "center",
+                                "backgroundColor": "#0b2b57",
+                                "color": "white",
+                                "padding": "8px 0",
+                                "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
+                            },
+                        ),
+                        dash_table.DataTable(
+                            id="tabela_extrato_valores",
+                            columns=[{"name": col, "id": col} for col in cols_contrato_valores],
+                            data=[],
+                            style_table={
+                                "overflowX": "auto",
+                                "width": "100%",
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
+                            },
+                            style_cell={
+                                "textAlign": "center",
+                                "padding": "8px",
+                                "fontSize": "13px",
+                                "whiteSpace": "normal",
+                            },
+                            style_header={
+                                "fontWeight": "bold",
+                                "backgroundColor": "#f0f0f0",
+                                "color": "black",
+                                "textAlign": "center",
+                            },
+                        ),
+                    ],
+                ),
+
+                # OBJETO
+                html.Div(
+                    style={
+                        "width": "100%",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
+                    children=[
+                        html.H4(
+                            "OBJETO",
+                            style={
+                                "textAlign": "center",
+                                "backgroundColor": "#0b2b57",
+                                "color": "white",
+                                "padding": "8px 0",
+                                "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
+                            },
+                        ),
+                        dash_table.DataTable(
+                            id="tabela_extrato_objeto",
+                            columns=[{"name": "Objeto", "id": "Objeto"}],
+                            data=[],
+                            style_table={
+                                "overflowX": "auto",
+                                "width": "100%",
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
+                            },
+                            style_cell={
+                                "textAlign": "left",
+                                "padding": "10px",
+                                "fontSize": "13px",
+                                "whiteSpace": "normal",
+                            },
+                            style_header={
+                                "fontWeight": "bold",
+                                "backgroundColor": "#f0f0f0",
+                                "color": "black",
+                                "textAlign": "center",
+                            },
+                        ),
+                    ],
+                ),
+
+                # COMPRASNET
+                html.Div(
+                    style={
+                        "width": "100%",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
+                    children=[
+                        html.H4(
+                            "DOCUMENTOS DA CONTRATAÇÃO DISPONÍVEIS PARA CONSULTA NO PORTAL COMPRASNET",
+                            style={
+                                "textAlign": "center",
+                                "backgroundColor": "#0b2b57",
+                                "color": "white",
+                                "padding": "8px 0",
+                                "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
+                                "fontSize": "14px",
+                            },
+                        ),
+                        dash_table.DataTable(
+                            id="tabela_extrato_comprasnet",
+                            columns=[{
+                                "name": "",
+                                "id": "Comprasnet_link",
+                                "presentation": "markdown",
+                            }],
+                            data=[],
+                            style_table={
+                                "overflowX": "auto",
+                                "width": "100%",
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
+                            },
+                            style_cell={
+                                "textAlign": "center",
+                                "padding": "10px",
+                                "fontSize": "13px",
+                                "whiteSpace": "normal",
+                                "height": "60px",
+                                "verticalAlign": "middle",
+                            },
+                            style_header={
+                                "fontWeight": "bold",
+                                "backgroundColor": "#f0f0f0",
+                                "color": "black",
+                                "textAlign": "center",
+                            },
+                        ),
+                    ],
+                ),
+
+                # FISCALIZAÇÃO
+                html.Div(
+                    style={
+                        "width": "100%",
+                        "position": "relative",
+                        "zIndex": 1,
+                    },
+                    children=[
+                        html.H4(
+                            "EQUIPE DE FISCALIZAÇÃO DO CONTRATO",
+                            style={
+                                "textAlign": "center",
+                                "backgroundColor": "#0b2b57",
+                                "color": "white",
+                                "padding": "8px 0",
+                                "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
                             },
                         ),
                         dash_table.DataTable(
                             id="tabela_extrato_fiscalizacao",
                             columns=[],  # Serão preenchidas dinamicamente
                             data=[],
-                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
-                                "overflowY": "auto",
-                                "maxHeight": "180px",
                                 "width": "100%",
-                                "position": "relative",
-                                "zIndex": 1,
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
                             },
                             style_cell={
                                 "textAlign": "center",
-                                "padding": "8px 4px",
-                                "fontSize": "11px",
+                                "padding": "10px 4px",
+                                "fontSize": "12px",
                                 "whiteSpace": "normal",
-                                "height": "60px",
+                                "height": "70px",
                                 "verticalAlign": "middle",
                             },
                             style_header={
@@ -568,8 +611,7 @@ layout = html.Div(
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
                                 "textAlign": "center",
-                                "padding": "8px",
-                                "fontSize": "12px",
+                                "padding": "10px",
                             },
                             style_data_conditional=[
                                 {
@@ -592,46 +634,41 @@ layout = html.Div(
                 # GARANTIA
                 html.Div(
                     style={
-                        "flex": "1 1 100%",
-                        "minWidth": "300px",
+                        "width": "100%",
                         "position": "relative",
                         "zIndex": 1,
-                        "marginTop": "0px",
                     },
                     children=[
                         html.H4(
-                            "Garantia de Execução Contratual",
+                            "GARANTIA DE EXECUÇÃO CONTRATUAL",
                             style={
                                 "textAlign": "center",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-                                "padding": "6px 0",
-                                "marginTop": "10px",
-                                "marginBottom": "0",
+                                "padding": "8px 0",
+                                "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
                             },
                         ),
                         dash_table.DataTable(
                             id="tabela_extrato_garantia",
                             columns=[{"name": col, "id": col} for col in cols_garantia],
                             data=[],
-                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
-                                "overflowY": "auto",
-                                "maxHeight": "320px",
                                 "width": "100%",
-                                "position": "relative",
-                                "zIndex": 1,
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
                             },
                             style_cell={
                                 "textAlign": "center",
-                                "padding": "6px",
+                                "padding": "8px",
                                 "fontSize": "12px",
                                 "whiteSpace": "normal",
                             },
                             style_header={
                                 "fontWeight": "bold",
-                                "backgroundColor": "#d9d9d9",
+                                "backgroundColor": "#f0f0f0",
                                 "color": "black",
                                 "textAlign": "center",
                             },
@@ -639,25 +676,35 @@ layout = html.Div(
                     ],
                 ),
 
-                # EVOLUÇÃO - COM COLUNA ALTERAÇÃO E TIPO
+                # EVOLUÇÃO
                 html.Div(
                     style={
-                        "flex": "1 1 100%",
-                        "minWidth": "300px",
+                        "width": "100%",
                         "position": "relative",
                         "zIndex": 1,
-                        "marginTop": "10px",
                     },
                     children=[
                         html.H4(
-                            "Evolução do Contrato",
+                            "EVOLUÇÃO DO CONTRATO",
                             style={
                                 "textAlign": "center",
                                 "backgroundColor": "#0b2b57",
                                 "color": "white",
-                                "padding": "6px 0",
-                                "marginTop": "0",
-                                "marginBottom": "0",
+                                "padding": "8px 0",
+                                "margin": "0",
+                                "borderRadius": "4px 4px 0 0",
+                            },
+                        ),
+                        html.Div(
+                            id="valor_original_label",
+                            style={
+                                "textAlign": "right",
+                                "padding": "8px",
+                                "backgroundColor": "#fff",
+                                "border": "1px solid #ddd",
+                                "borderBottom": "none",
+                                "fontSize": "13px",
+                                "fontWeight": "bold",
                             },
                         ),
                         dash_table.DataTable(
@@ -670,21 +717,17 @@ layout = html.Div(
                                 {"name": "Valor Atualizado", "id": "Valor Atualizado_fmt"},
                             ],
                             data=[],
-                            fixed_rows={"headers": True},
                             style_table={
                                 "overflowX": "auto",
-                                "overflowY": "auto",
-                                "maxHeight": "500px",
                                 "width": "100%",
-                                "position": "relative",
-                                "zIndex": 1,
+                                "border": "1px solid #ddd",
+                                "borderRadius": "0 0 4px 4px",
                             },
                             style_cell={
                                 "textAlign": "center",
-                                "padding": "4px",
-                                "fontSize": "11px",
+                                "padding": "6px",
+                                "fontSize": "12px",
                                 "whiteSpace": "normal",
-                                "minWidth": "0",
                             },
                             style_cell_conditional=[
                                 {"if": {"column_id": "Alteração"}, "width": "15%"},
@@ -695,7 +738,7 @@ layout = html.Div(
                             ],
                             style_header={
                                 "fontWeight": "bold",
-                                "backgroundColor": "#d9d9d9",
+                                "backgroundColor": "#f0f0f0",
                                 "color": "black",
                                 "textAlign": "center",
                             },
@@ -719,6 +762,19 @@ def wrap_header(text):
             fontSize=7,
             alignment=TA_CENTER,
             textColor=colors.black,
+            leading=10,
+        ),
+    )
+
+def wrap_header_azul(text):
+    """Cria header com fundo azul para PDF"""
+    return Paragraph(
+        f"<b>{text}</b>",
+        ParagraphStyle(
+            "header_pdf_azul",
+            fontSize=8,
+            alignment=TA_CENTER,
+            textColor=colors.white,
             leading=10,
         ),
     )
@@ -763,6 +819,28 @@ def wrap_data_left(text):
             "data_pdf_left",
             fontSize=7,
             alignment=TA_LEFT,
+            leading=9,
+        ),
+    )
+
+def wrap_data_right(text):
+    """Cria célula de dados com alinhamento à direita para PDF"""
+    if pd.isna(text) or text is None or text == "" or str(text).strip() == "":
+        return Paragraph(
+            "",
+            ParagraphStyle(
+                "data_pdf_right",
+                fontSize=7,
+                alignment=TA_RIGHT,
+                leading=9,
+            ),
+        )
+    return Paragraph(
+        str(text),
+        ParagraphStyle(
+            "data_pdf_right",
+            fontSize=7,
+            alignment=TA_RIGHT,
             leading=9,
         ),
     )
@@ -844,10 +922,17 @@ def adicionar_cabecalho_relatorio(story, num_contrato):
     story.append(titulo)
     story.append(Spacer(1, 0.2 * inch))
 
-def criar_tabela_pdf(story, titulo, dados_header, dados_linhas, colWidths, alinhamentos=None):
+def criar_tabela_pdf(story, titulo, dados_header, dados_linhas, colWidths, alinhamentos=None, larguras_personalizadas=None):
     """Cria tabela formatada no PDF com título azul e header cinza claro"""
     LARGURA_PADRAO = 6.7 * inch
     table_data = [dados_header] + dados_linhas
+    
+    # Se larguras personalizadas fornecidas, use-as
+    if larguras_personalizadas:
+        # Normalizar larguras para somar LARGURA_PADRAO
+        total_especificado = sum(larguras_personalizadas)
+        colWidths = [largura/total_especificado * LARGURA_PADRAO for largura in larguras_personalizadas]
+    
     tbl = Table(table_data, colWidths=colWidths, repeatRows=1)
     
     table_styles = [
@@ -898,6 +983,39 @@ def criar_tabela_pdf(story, titulo, dados_header, dados_linhas, colWidths, alinh
     ]))
 
     story.append(titulo_table)
+    story.append(tbl)
+
+def criar_tabela_com_header_azul(story, titulo, dados_header, dados_linhas, colWidths, alinhamentos=None):
+    """Cria tabela com header azul (para Objeto e ComprasNet)"""
+    LARGURA_PADRAO = 6.7 * inch
+    table_data = [dados_header] + dados_linhas
+    
+    tbl = Table(table_data, colWidths=colWidths, repeatRows=1)
+    
+    table_styles = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+    ]
+    
+    # Aplicar alinhamentos personalizados se fornecidos
+    if alinhamentos:
+        for col_idx, align in enumerate(alinhamentos):
+            if align == "LEFT":
+                table_styles.append(("ALIGN", (col_idx, 1), (col_idx, -1), "LEFT"))
+            elif align == "RIGHT":
+                table_styles.append(("ALIGN", (col_idx, 1), (col_idx, -1), "RIGHT"))
+    
+    tbl.setStyle(TableStyle(table_styles))
+    
     story.append(tbl)
 
 def criar_tabela_fiscalizacao_pdf(story, dados_equipes):
@@ -1001,15 +1119,21 @@ def gerar_pdf_relatorio_extrato(
 
     adicionar_cabecalho_relatorio(story, num_contrato)
 
-    # INFORMAÇÕES DO CONTRATO
+    # INFORMAÇÕES DO CONTRATO - COM LARGURAS PERSONALIZADAS
     if not df_info.empty:
         header = [wrap_header(col) for col in df_info.columns]
         linhas = []
         for _, row in df_info.iterrows():
             linha = [wrap_data(row[col]) for col in df_info.columns]
             linhas.append(linha)
-        col_widths = [0.957 * inch] * 7
-        criar_tabela_pdf(story, "INFORMAÇÕES DO CONTRATO", header, linhas, col_widths)
+        
+        # LARGURAS PERSONALIZADAS: Processo menor, CNPJ maior
+        # Valores em proporções relativas
+        # 7 colunas: Processo, Modalidade, Vigência - de, Vigência - até, Prazo, Contratada, CNPJ
+        larguras_personalizadas = [1.2, 1.1, 0.6, 0.6, 0.5, 1.4, 1.0]  # Proporções relativas (CNPJ maior)
+        col_widths = None  # Será calculado automaticamente
+        
+        criar_tabela_pdf(story, "INFORMAÇÕES DO CONTRATO", header, linhas, col_widths, larguras_personalizadas=larguras_personalizadas)
 
     # VALORES DO CONTRATO
     if not df_valores.empty:
@@ -1024,51 +1148,37 @@ def gerar_pdf_relatorio_extrato(
         col_widths = [2.233 * inch] * 3
         criar_tabela_pdf(story, "VALORES DO CONTRATO", header, linhas, col_widths)
 
-    # OBJETO E COMPRASNET
+    # OBJETO - COM HEADER AZUL
     if not df_objeto.empty:
-        header_objeto = [wrap_header("Objeto"), wrap_header("")]
         objeto_text = df_objeto["Objeto"].iloc[0] if not df_objeto.empty else ""
-        comprasnet_url = df_comprasnet["Comprasnet"].iloc[0] if not df_comprasnet.empty else ""
         
-        linhas_obj = [[
-            wrap_data_left(objeto_text),
-            Paragraph(
-                f"<a href='{comprasnet_url}'>{comprasnet_url}</a>" if comprasnet_url else "",
-                ParagraphStyle("link_pdf", fontSize=7, alignment=TA_CENTER, textColor=colors.blue, leading=9)
-            ) if comprasnet_url else wrap_data("", TA_CENTER)
-        ]]
+        # Header azul com "OBJETO"
+        header_objeto = [wrap_header_azul("OBJETO")]
+        linhas_obj = [[wrap_data_left(objeto_text)]]  # Usando wrap_data_left em vez de wrap_data_justify
         
-        col_widths_obj = [4.7 * inch, 2.0 * inch]
-        titulo_table = Table(
-            [[Paragraph("<b>OBJETO</b>", ParagraphStyle("titulo_secao", alignment=TA_CENTER, fontSize=9, textColor=colors.white, leading=10))]],
-            colWidths=[6.7 * inch],
+        col_widths_obj = [6.7 * inch]
+        
+        criar_tabela_com_header_azul(story, "", header_objeto, linhas_obj, col_widths_obj, alinhamentos=["LEFT"])
+        
+        story.append(Spacer(1, 0.1 * inch))
+
+    # DOCUMENTOS COMPRASNET - COM HEADER AZUL
+    comprasnet_url = df_comprasnet["Comprasnet"].iloc[0] if not df_comprasnet.empty else ""
+    
+    if comprasnet_url:
+        # Header azul com o texto completo
+        header_comprasnet = [wrap_header_azul("DOCUMENTOS DA CONTRATAÇÃO DISPONÍVEIS PARA CONSULTA NO PORTAL COMPRASNET")]
+        link_paragraph = Paragraph(
+            f"<a href='{comprasnet_url}'>{comprasnet_url}</a>",
+            ParagraphStyle("link_pdf", fontSize=8, alignment=TA_CENTER, textColor=colors.blue, leading=10)
         )
-        titulo_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, 0), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
-        ]))
-        story.append(titulo_table)
+        linhas_comprasnet = [[link_paragraph]]
         
-        tbl_obj = Table([header_objeto] + linhas_obj, colWidths=col_widths_obj, repeatRows=1)
-        tbl_obj.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d9d9d9")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ALIGN", (0, 0), (0, -1), "LEFT"),
-            ("ALIGN", (1, 0), (1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
-        ]))
-        story.append(tbl_obj)
+        col_widths_comprasnet = [6.7 * inch]
+        
+        criar_tabela_com_header_azul(story, "", header_comprasnet, linhas_comprasnet, col_widths_comprasnet, alinhamentos=["CENTER"])
+        
+        story.append(Spacer(1, 0.1 * inch))
 
     # FISCALIZAÇÃO - NOVO FORMATO OTIMIZADO
     if equipes_dados:
@@ -1088,7 +1198,7 @@ def gerar_pdf_relatorio_extrato(
         col_widths = [0.744 * inch] * 9
         criar_tabela_pdf(story, "GARANTIA DE EXECUÇÃO CONTRATUAL", header, linhas, col_widths)
 
-    # EVOLUÇÃO - COM COLUNA ALTERAÇÃO E TIPO - LARGURA PROPORCIONAL
+    # EVOLUÇÃO DO CONTRATO - COM VALOR ORIGINAL À DIREITA
     if not df_evolucao.empty:
         df_evolucao_fmt = df_evolucao.copy()
         for col in ["Valor", "Valor Atualizado"]:
@@ -1108,7 +1218,7 @@ def gerar_pdf_relatorio_extrato(
             linha = [wrap_data(row[col]) for col in cols_to_display]
             linhas.append(linha)
         
-        # LARGURAS PROPORCIONAIS - mesmo padrão das outras tabelas
+        # LARGURAS PROPORCIONAIS
         if "Alteração" in df_evolucao_fmt.columns and "Tipo" in df_evolucao_fmt.columns:
             # 5 colunas: 15%, 30%, 15%, 20%, 20%
             col_widths = [1.005 * inch, 2.01 * inch, 1.005 * inch, 1.34 * inch, 1.34 * inch]
@@ -1118,13 +1228,142 @@ def gerar_pdf_relatorio_extrato(
             col_widths = [2.01 * inch, 1.34 * inch, 1.675 * inch, 1.675 * inch]
             alinhamentos = ["CENTER", "CENTER", "RIGHT", "RIGHT"]
         
-        criar_tabela_pdf(story, "EVOLUÇÃO DO CONTRATO", header, linhas, col_widths, alinhamentos)
+        # Adicionar título e linha com "Valor original:" alinhado à direita
+        titulo_evolucao_texto = f"EVOLUÇÃO DO CONTRATO"
+        titulo_table_evol = Table(
+            [[
+                Paragraph(
+                    f"<b>{titulo_evolucao_texto}</b>",
+                    ParagraphStyle(
+                        "titulo_secao",
+                        alignment=TA_CENTER,
+                        fontSize=9,
+                        textColor=colors.white,
+                        leading=10,
+                    ),
+                )
+            ]],
+            colWidths=[6.7 * inch],
+        )
+        titulo_table_evol.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b2b57")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, 0), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+        ]))
+        story.append(titulo_table_evol)
+        
+        # Adicionar linha com "Valor original:" alinhado à DIREITA
+        valor_original = df_valores["Valor original"].iloc[0] if not df_valores.empty else ""
+        valor_original_fmt = formatar_moeda(valor_original) if valor_original else ""
+        
+        linha_valor_original = Table(
+            [[
+                Paragraph(
+                    f"<b>Valor original:</b> {valor_original_fmt}",
+                    ParagraphStyle(
+                        "valor_original",
+                        alignment=TA_RIGHT,
+                        fontSize=8,
+                        leading=10,
+                    ),
+                )
+            ]],
+            colWidths=[6.7 * inch],
+        )
+        linha_valor_original.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.white),
+            ("TOPPADDING", (0, 0), (-1, 0), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 3),
+            ("LEFTPADDING", (0, 0), (-1, 0), 4),
+            ("RIGHTPADDING", (0, 0), (-1, 0), 4),
+        ]))
+        story.append(linha_valor_original)
+        
+        # Adicionar a tabela de evolução
+        tbl_evol = Table([header] + linhas, colWidths=col_widths, repeatRows=1)
+        table_styles_evol = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#d9d9d9")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
+        ]
+        
+        # Aplicar alinhamentos personalizados
+        for col_idx, align in enumerate(alinhamentos):
+            if align == "LEFT":
+                table_styles_evol.append(("ALIGN", (col_idx, 1), (col_idx, -1), "LEFT"))
+            elif align == "RIGHT":
+                table_styles_evol.append(("ALIGN", (col_idx, 1), (col_idx, -1), "RIGHT"))
+        
+        tbl_evol.setStyle(TableStyle(table_styles_evol))
+        story.append(tbl_evol)
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
 # ===== CALLBACKS =====
+@callback(
+    Output("filtro_contrato_extrato", "options"),
+    Output("filtro_objeto_extrato", "options"),
+    Input("filtro_contrato_extrato", "value"),
+    Input("filtro_objeto_extrato", "value"),
+)
+def atualizar_filtros_cascata(contrato_selecionado, objeto_selecionado):
+    """Atualiza os filtros em cascata"""
+    df_filtrado = df_extrato_base.copy()
+    
+    # Aplicar filtros em cascata
+    if contrato_selecionado:
+        df_filtrado = df_filtrado[df_filtrado["Contrato"] == contrato_selecionado]
+    
+    if objeto_selecionado:
+        df_filtrado = df_filtrado[df_filtrado["Objeto"] == objeto_selecionado]
+    
+    # Gerar opções para Contrato
+    opcoes_contrato = [
+        {"label": str(contrato), "value": str(contrato)}
+        for contrato in sorted(df_filtrado["Contrato"].dropna().unique())
+    ]
+    
+    # Gerar opções para Objeto (com truncamento para nomes muito longos)
+    opcoes_objeto = []
+    for objeto in sorted(df_filtrado["Objeto"].dropna().unique()):
+        objeto_str = str(objeto)
+        label = objeto_str[:100] + "..." if len(objeto_str) > 100 else objeto_str
+        opcoes_objeto.append({"label": label, "value": objeto_str})
+    
+    return opcoes_contrato, opcoes_objeto
+
+@callback(
+    Output("info_filtros", "children"),
+    Input("filtro_contrato_extrato", "value"),
+    Input("filtro_objeto_extrato", "value"),
+)
+def atualizar_info_filtros(contrato, objeto):
+    """Atualiza a informação sobre filtros aplicados"""
+    filtros = []
+    if contrato:
+        filtros.append(f"Contrato: {contrato}")
+    if objeto:
+        # Truncar objeto muito longo
+        objeto_display = objeto[:50] + "..." if len(objeto) > 50 else objeto
+        filtros.append(f"Objeto: {objeto_display}")
+    
+    if filtros:
+        return f"Filtros aplicados: {' | '.join(filtros)}"
+    return "Nenhum filtro aplicado"
+
 @callback(
     Output("tabela_extrato_info", "data"),
     Output("tabela_extrato_objeto", "data"),
@@ -1133,24 +1372,34 @@ def gerar_pdf_relatorio_extrato(
     Output("tabela_extrato_fiscalizacao", "columns"),
     Output("tabela_extrato_garantia", "data"),
     Output("tabela_extrato_evolucao", "data"),
+    Output("valor_original_label", "children"),
     Output("tabela_extrato_comprasnet", "data"),
     Output("valor_numero_contrato", "children"),
     Input("filtro_contrato_extrato", "value"),
+    Input("filtro_objeto_extrato", "value"),
 )
-def atualizar_tabelas_extrato_cb(contrato):
-    """Callback principal: atualiza todas as tabelas ao filtrar contrato"""
-    if not contrato:
-        return [], [], [], [], [], [], [], [], ""
-
-    dff = df_extrato_base[
-        df_extrato_base["Contrato"]
-        .astype(str)
-        .str.contains(str(contrato).strip(), case=False, na=False)
-    ]
+def atualizar_tabelas_extrato_cb(contrato, objeto):
+    """Callback principal: atualiza todas as tabelas ao filtrar"""
+    # Se não houver nenhum filtro selecionado, limpar tudo
+    if not contrato and not objeto:
+        return [], [], [], [], [], [], [], "", [], ""
+    
+    # Aplicar filtros
+    dff = df_extrato_base.copy()
+    
+    if contrato:
+        dff = dff[dff["Contrato"] == contrato]
+    
+    if objeto:
+        dff = dff[dff["Objeto"] == objeto]
+    
     if dff.empty:
-        return [], [], [], [], [], [], [], [], ""
-
+        return [], [], [], [], [], [], [], "", [], ""
+    
     dff_sorted = dff.copy()
+    
+    # Pegar o primeiro contrato se houver múltiplos
+    contrato_display = dff_sorted["Contrato"].iloc[0]
     
     df_info = dff_sorted[cols_contrato_info].head(1)
     
@@ -1160,9 +1409,13 @@ def atualizar_tabelas_extrato_cb(contrato):
         if col in df_valores.columns:
             df_valores[col] = df_valores[col].apply(lambda x: formatar_moeda(x))
     
+    # Valor original para o label
+    valor_original_raw = dff_sorted["Valor original"].iloc[0] if not dff_sorted.empty else None
+    valor_original_fmt = formatar_moeda(valor_original_raw) if valor_original_raw else ""
+    
     df_objeto = dff_sorted[["Objeto"]].head(1).copy()
     
-    # COMPRASNET como link Markdown - título vazio
+    # COMPRASNET como link Markdown
     df_comp = dff_sorted[["Comprasnet"]].head(1).copy()
     df_comp["Comprasnet_link"] = df_comp["Comprasnet"].apply(
         lambda x: f"[{x}]({x})" if isinstance(x, str) and x.strip() else ""
@@ -1279,38 +1532,45 @@ def atualizar_tabelas_extrato_cb(contrato):
         colunas_tabela,
         df_garan.to_dict("records"),
         df_evol_display.to_dict("records"),
+        f"Valor original: {valor_original_fmt}",
         df_comp[["Comprasnet_link"]].to_dict("records"),
-        str(dff_sorted["Contrato"].iloc[0]),
+        str(contrato_display),
     )
 
 @callback(
-    Output("filtro_contrato_extrato", "value"),
+    Output("filtro_contrato_extrato", "value", allow_duplicate=True),
+    Output("filtro_objeto_extrato", "value", allow_duplicate=True),
     Input("btn_limpar_filtros_extrato", "n_clicks"),
     prevent_initial_call=True,
 )
 def limpar_filtros_extrato(n_clicks):
-    """Limpa o filtro de contrato"""
-    return ""
+    """Limpa os filtros de contrato e objeto"""
+    return "", ""
 
 @callback(
     Output("download_relatorio_extrato", "data"),
     Input("btn_download_relatorio_extrato", "n_clicks"),
     State("filtro_contrato_extrato", "value"),
+    State("filtro_objeto_extrato", "value"),
     prevent_initial_call=True,
 )
-def download_relatorio_pdf(n_clicks, filtro_contrato):
+def download_relatorio_pdf(n_clicks, filtro_contrato, filtro_objeto):
     """Gera e baixa o PDF do relatório"""
     from dash import dcc
     import dash
     
-    if not n_clicks or not filtro_contrato:
+    if not n_clicks or (not filtro_contrato and not filtro_objeto):
         return dash.no_update
-
-    dff = df_extrato_base[
-        df_extrato_base["Contrato"]
-        .astype(str)
-        .str.contains(str(filtro_contrato).strip(), case=False, na=False)
-    ]
+    
+    # Aplicar os mesmos filtros usados na visualização
+    dff = df_extrato_base.copy()
+    
+    if filtro_contrato:
+        dff = dff[dff["Contrato"] == filtro_contrato]
+    
+    if filtro_objeto:
+        dff = dff[dff["Objeto"] == filtro_objeto]
+    
     if dff.empty:
         return dash.no_update
 
