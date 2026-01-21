@@ -20,7 +20,7 @@ dash.register_page(
 URL_BI_EXTRATO = (
     "https://docs.google.com/spreadsheets/d/"
     "17nBhvSoCeK3hNgCj2S57q3pF2Uxj6iBpZDvCX481KcU/"
-    "gviz/tq?tqx=out:csv&sheet=BI%20Extrato"
+    "gviz/tq?tqx=out:csv&sheet=Grupo%20da%20Cont."
 )
 
 

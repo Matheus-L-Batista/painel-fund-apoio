@@ -24,9 +24,36 @@ from pytz import timezone
 import os
 
 # --------------------------------------------------
+# Função para verificar se estamos na página de processos de compras
+# --------------------------------------------------
+def verificar_pagina_processos_compras():
+    """Verifica se o callback está sendo executado na página de processos de compras"""
+    try:
+        if not dash.ctx.triggered:
+            # Permite execução inicial
+            return True
+        
+        # Componentes específicos da página de processos de compras
+        componentes_processos = {
+            'filtro_num_proc', 'filtro_ano_proc', 'filtro_mes_finalizacao',
+            'filtro_solicitante_proc', 'filtro_objeto_proc', 'filtro_modalidade_proc',
+            'filtro_status_proc', 'filtro_classif_nc_proc',
+            'btn_limpar_filtros_proc', 'btn_download_relatorio_proc'
+        }
+        
+        # Obtém o ID do componente que disparou o callback
+        triggered = dash.ctx.triggered[0]
+        triggered_id = triggered['prop_id'].split('.')[0]
+        
+        # Verifica se é um componente da página de processos de compras
+        return triggered_id in componentes_processos
+    except Exception:
+        # Em caso de erro, permite a execução (segurança para inicialização)
+        return True
+
+# --------------------------------------------------
 # Registro da página
 # --------------------------------------------------
-
 dash.register_page(
     __name__,
     path="/processos-de-compras",
@@ -44,8 +71,6 @@ URL_PROCESSOS = (
 # --------------------------------------------------
 # Carga de dados e utilitários
 # --------------------------------------------------
-
-
 def carregar_dados_processos():
     """
     Lê a planilha de processos de compras e faz:
@@ -150,7 +175,6 @@ dropdown_style = {
 # --------------------------------------------------
 # Estilo unificado dos botões
 # --------------------------------------------------
-
 botao_style = {
     "backgroundColor": "#0b2b57",
     "color": "white",
@@ -195,7 +219,6 @@ MESES_ORDENADOS = [
 # --------------------------------------------------
 # Layout
 # --------------------------------------------------
-
 layout = html.Div(
     children=[
         # Barra de filtros
@@ -553,8 +576,6 @@ layout = html.Div(
 # ----------------------------------------
 # Callback: atualizar tabela + cards + gráficos
 # ----------------------------------------
-
-
 @dash.callback(
     Output("tabela_proc", "data"),
     Output("store_dados_proc", "data"),
@@ -580,6 +601,10 @@ def atualizar_tabela_proc(
     status,
     classif_nc,
 ):
+    # VERIFICAÇÃO: Só executa se estiver na página de processos de compras
+    if not verificar_pagina_processos_compras():
+        raise PreventUpdate
+    
     # -------------------------
     # Filtro principal
     # -------------------------
@@ -959,8 +984,6 @@ def atualizar_tabela_proc(
 # ----------------------------------------
 # Callback: filtros em cascata
 # ----------------------------------------
-
-
 @dash.callback(
     Output("filtro_num_proc", "options"),
     Output("filtro_mes_finalizacao", "options"),
@@ -992,6 +1015,10 @@ def atualizar_opcoes_filtros(
     Gera opções de dropdown em cascata a partir de um único filtro global.
     A ordem de seleção dos filtros não importa.
     """
+    # VERIFICAÇÃO: Só executa se estiver na página de processos de compras
+    if not verificar_pagina_processos_compras():
+        raise PreventUpdate
+    
     dff = df_proc_base.copy()
     mask = pd.Series(True, index=dff.index)
 
@@ -1084,8 +1111,6 @@ def atualizar_opcoes_filtros(
 # ----------------------------------------
 # Callback: limpar filtros (volta sempre para ano 2026)
 # ----------------------------------------
-
-
 @dash.callback(
     Output("filtro_num_proc", "value"),
     Output("filtro_ano_proc", "value"),
@@ -1102,13 +1127,15 @@ def limpar_filtros_proc(n):
     """
     Limpa todos os filtros e retorna o ano para ANO_PADRAO (2026).
     """
+    # VERIFICAÇÃO: Só executa se estiver na página de processos de compras
+    if not verificar_pagina_processos_compras():
+        raise PreventUpdate
+    
     return None, ANO_PADRAO, None, None, None, None, None, None
 
 # ====================================================
 # FUNÇÕES AUXILIARES PARA PDF – COMPRAS
 # ====================================================
-
-
 def formatar_moeda(valor):
     """
     Formata um valor numérico como moeda brasileira (R$ X.XXX,XX).
@@ -1161,7 +1188,7 @@ def criar_card_elemento(titulo, valor, cor):
                     "BACKGROUND",
                     (0, 0),
                     (-1, -1),
-                    colors.HexColor("#FFFFFF"),  # Alterado de #F5F5F5 para #FFFFFF
+                    colors.HexColor("#FFFFFF"),
                 ),
                 (
                     "BORDER",
@@ -1269,8 +1296,6 @@ def criar_cards_resumo_pdf(story, df, pagesize):
     story.append(Spacer(1, 0.15 * inch))
 
 # Estilos PDF
-
-
 wrap_style_compras = ParagraphStyle(
     name="wrap_compras",
     fontSize=7,
@@ -1306,8 +1331,6 @@ def header_pdf_compras(text):
     return Paragraph(str(text), header_cell_style_compras)
 
 # Cabeçalho PDF – Compras
-
-
 def adicionar_cabecalho_compras(story, df, styles):
     logo_esq = (
         Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
@@ -1376,8 +1399,6 @@ def adicionar_cabecalho_compras(story, df, styles):
     story.append(Spacer(1, 0.15 * inch))
 
 # Tabela de dados no PDF
-
-
 def criar_tabela_dados_compras(story, df, pagesize):
     if df.empty:
         return
@@ -1475,8 +1496,6 @@ def criar_tabela_dados_compras(story, df, pagesize):
 # --------------------------------------------------
 # CALLBACK: GERAR PDF DE PROCESSOS DE COMPRAS
 # --------------------------------------------------
-
-
 @dash.callback(
     Output("download_relatorio_proc", "data"),
     Input("btn_download_relatorio_proc", "n_clicks"),
@@ -1487,6 +1506,10 @@ def gerar_pdf_proc(n, dados_proc):
     """
     Gera o relatório em PDF com base nos dados filtrados atualmente na tabela.
     """
+    # VERIFICAÇÃO: Só executa se estiver na página de processos de compras
+    if not verificar_pagina_processos_compras():
+        raise PreventUpdate
+    
     if not n or not dados_proc:
         return None
 

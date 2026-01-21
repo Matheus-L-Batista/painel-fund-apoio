@@ -1,9 +1,8 @@
-
 import dash
-from dash import html, dcc, dash_table, Input, Output, State, callback, ALL, MATCH, ctx
+from dash import html, dcc, dash_table, Input, Output, State, callback, ALL, MATCH
 import pandas as pd
 from datetime import datetime
-
+from dash.exceptions import PreventUpdate
 
 from io import BytesIO
 from reportlab.lib.pagesizes import landscape, A4
@@ -22,6 +21,33 @@ from reportlab.lib import colors
 from pytz import timezone
 import os
 
+
+# --------------------------------------------------
+# Função para verificar se estamos na página de contratos
+# --------------------------------------------------
+def verificar_pagina_contratos():
+    """Verifica se o callback está sendo executado na página de contratos"""
+    try:
+        if not dash.ctx.triggered:
+            # Permite execução inicial
+            return True
+        
+        # Componentes específicos da página de contratos
+        componentes_contratos = {
+            'filtro_contrato', 'filtro_objeto', 'filtro_setor',
+            'filtro_grupo', 'filtro_empresa', 'filtro_status_vig',
+            'btn_limpar_filtros_contratos', 'btn_download_relatorio_contratos'
+        }
+        
+        # Obtém o ID do componente que disparou o callback
+        triggered = dash.ctx.triggered[0]
+        triggered_id = triggered['prop_id'].split('.')[0]
+        
+        # Verifica se é um componente da página de contratos
+        return triggered_id in componentes_contratos
+    except Exception:
+        # Em caso de erro, permite a execução (segurança para inicialização)
+        return True
 
 
 # --------------------------------------------------
@@ -417,7 +443,12 @@ layout = html.Div(
         dash_table.DataTable(
             id="tabela_contratos",
             columns=[
-                {"name": "Contrato", "id": "Contrato"},
+                {
+                    "name": "Contrato", 
+                    "id": "Contrato_Link",
+                    "type": "text",
+                    "presentation": "markdown"
+                },
                 {"name": "Setor", "id": "Setor"},
                 {"name": "Grupo", "id": "Grupo"},
                 {"name": "Objeto", "id": "Objeto"},
@@ -428,6 +459,7 @@ layout = html.Div(
                 {"name": "Status da Vigência", "id": "Status da Vigência"},
             ],
             data=[],
+            markdown_options={"html": True},
             row_selectable=False,
             cell_selectable=False,
             style_table={
@@ -456,7 +488,7 @@ layout = html.Div(
             },
             style_cell_conditional=[
                 {
-                    "if": {"column_id": "Contrato"},
+                    "if": {"column_id": "Contrato_Link"},
                     "textAlign": "center",
                 },
             ],
@@ -522,7 +554,10 @@ def atualizar_tabela_contratos(
     empresa,
     status_vig,
 ):
-    # Este callback só será executado quando a página de contratos estiver ativa
+    # VERIFICAÇÃO: Só executa se estiver na página de contratos
+    if not verificar_pagina_contratos():
+        raise PreventUpdate
+    
     dff = filtrar_contratos(
         contrato_texto,
         objeto_texto,
@@ -534,8 +569,20 @@ def atualizar_tabela_contratos(
 
     dff = dff.copy()
 
+    # Verificar se a coluna de link existe e criar coluna com hyperlink
+    if "Link Comprasnet" in dff.columns:
+        # Criar coluna com hyperlink HTML para a coluna Contrato
+        dff["Contrato_Link"] = dff.apply(
+            lambda row: f'<a href="{row["Link Comprasnet"]}" target="_blank" style="color: #0b2b57; text-decoration: none; font-weight: bold;">{row["Contrato"]}</a>' 
+            if pd.notna(row["Link Comprasnet"]) and str(row["Link Comprasnet"]).strip() and str(row["Link Comprasnet"]).startswith(('http://', 'https://'))
+            else row["Contrato"],
+            axis=1
+        )
+    else:
+        dff["Contrato_Link"] = dff["Contrato"]
+
     cols = [
-        "Contrato",
+        "Contrato_Link",  # Usar a coluna com link
         "Setor",
         "Grupo",
         "Objeto",
@@ -574,7 +621,10 @@ def atualizar_opcoes_filtros(
     empresa,
     status_vig,
 ):
-    # Este callback só será executado quando a página de contratos estiver ativa
+    # VERIFICAÇÃO: Só executa se estiver na página de contratos
+    if not verificar_pagina_contratos():
+        raise PreventUpdate
+    
     dff = filtrar_contratos(
         contrato_texto,
         objeto_texto,
@@ -623,7 +673,10 @@ def atualizar_opcoes_filtros(
     prevent_initial_call=True,
 )
 def limpar_filtros_contratos(n):
-    # Este callback só será executado quando a página de contratos estiver ativa
+    # VERIFICAÇÃO: Só executa se estiver na página de contratos
+    if not verificar_pagina_contratos():
+        raise PreventUpdate
+    
     # Retorna string vazia para Inputs e lista vazia para Dropdowns multi
     return "", "", [], [], [], []
 
@@ -671,6 +724,10 @@ def wrap_header(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_contratos(n, dados_contratos):
+    # VERIFICAÇÃO: Só executa se estiver na página de contratos
+    if not verificar_pagina_contratos():
+        raise PreventUpdate
+    
     if not n or not dados_contratos:
         return None
 
@@ -787,6 +844,7 @@ def gerar_pdf_contratos(n, dados_contratos):
     story.append(Spacer(1, 0.15 * inch))
 
     # Tabela
+    # Usar a coluna original "Contrato" para o PDF, não a de link
     cols = [
         "Contrato",
         "Setor",
