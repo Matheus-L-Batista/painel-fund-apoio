@@ -492,6 +492,7 @@ layout = html.Div(
                                 {"name": "Saldo", "id": "Saldo_fmt"},
                             ],
                             data=[],
+                            page_action='none',  # DESATIVA PAGINAÇÃO - TODAS AS LINHAS EM UMA PÁGINA
                             fixed_rows={"headers": True},
                             row_selectable=False,
                             cell_selectable=False,
@@ -572,6 +573,7 @@ layout = html.Div(
                                 {"name": "Valor", "id": "Valor_fmt"},
                             ],
                             data=[],
+                            page_action='none',  # DESATIVA PAGINAÇÃO - TODAS AS LINHAS EM UMA PÁGINA
                             fixed_rows={"headers": True},
                             row_selectable=False,
                             cell_selectable=False,
