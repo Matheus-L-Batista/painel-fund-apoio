@@ -1,2 +1,1 @@
-"# painel-dcc" 
-"# painel-itabira" 
+# painel-itabira
