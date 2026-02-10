@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc, dash_table, Input, Output, State, callback, ALL, MATCH
+from dash import html, dcc, dash_table, Input, Output, State, callback
 import pandas as pd
 from datetime import datetime
 from dash.exceptions import PreventUpdate
@@ -31,18 +31,23 @@ def verificar_pagina_contratos():
         if not dash.ctx.triggered:
             # Permite execução inicial
             return True
-        
+
         # Componentes específicos da página de contratos
         componentes_contratos = {
-            'filtro_contrato', 'filtro_objeto', 'filtro_setor',
-            'filtro_grupo', 'filtro_empresa', 'filtro_status_vig',
-            'btn_limpar_filtros_contratos', 'btn_download_relatorio_contratos'
+            "filtro_contrato",
+            "filtro_objeto",
+            "filtro_setor",
+            "filtro_grupo",
+            "filtro_empresa",
+            "filtro_status_vig",
+            "btn_limpar_filtros_contratos",
+            "btn_download_relatorio_contratos",
         }
-        
+
         # Obtém o ID do componente que disparou o callback
         triggered = dash.ctx.triggered[0]
-        triggered_id = triggered['prop_id'].split('.')[0]
-        
+        triggered_id = triggered["prop_id"].split(".")[0]
+
         # Verifica se é um componente da página de contratos
         return triggered_id in componentes_contratos
     except Exception:
@@ -61,7 +66,6 @@ dash.register_page(
 )
 
 
-
 # --------------------------------------------------
 # URL da planilha de Contratos
 # --------------------------------------------------
@@ -70,6 +74,9 @@ URL_CONTRATOS = (
     "17nBhvSoCeK3hNgCj2S57q3pF2Uxj6iBpZDvCX481KcU/"
     "gviz/tq?tqx=out:csv&sheet=Grupo%20da%20Cont."
 )
+
+# Grupo fixo a exibir
+GRUPO_FIXO = "FUNDAÇÃO DE APOIO"
 
 
 # nomes exatos das colunas originais no CSV
@@ -87,7 +94,6 @@ COL_TERMINO_VIG = "Termino da Vigência"  # igual na planilha
 COL_LINK_COMPRASNET = "Comprasnet Contratos"
 
 
-
 # --------------------------------------------------
 # Carga e tratamento dos dados
 # --------------------------------------------------
@@ -95,10 +101,8 @@ def carregar_dados_contratos():
     df = pd.read_csv(URL_CONTRATOS, header=0)
     df.columns = [c.strip() for c in df.columns]
 
-
     if COL_LINK_COMPRASNET not in df.columns:
         df[COL_LINK_COMPRASNET] = ""
-
 
     df = df.rename(
         columns={
@@ -114,15 +118,15 @@ def carregar_dados_contratos():
         }
     )
 
+    # ✅ FILTRO FIXO: somente FUNDAÇÃO DE APOIO
+    df = df[df["Grupo"].astype(str).str.strip().str.upper() == GRUPO_FIXO.upper()]
 
     # Converte datas para datetime para cálculo do status
     for col in ["Início da Vigência", "Término da Execução", "Término da Vigência"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], dayfirst=True, errors="coerce")
 
-
     hoje = datetime.now().date()
-
 
     def calcular_status(data_termino_exec):
         if pd.isna(data_termino_exec):
@@ -134,21 +138,17 @@ def carregar_dados_contratos():
             return "Vencido"
         return "Próximo do Vencimento"
 
-
     df["Status da Vigência"] = df["Término da Execução"].apply(calcular_status)
-
 
     # Formata datas para string dd/mm/aaaa para exibição
     for col in ["Início da Vigência", "Término da Execução", "Término da Vigência"]:
         if col in df.columns:
             df[col] = df[col].dt.strftime("%d/%m/%Y").fillna("")
 
-
     return df
 
 
 df_contratos_base = carregar_dados_contratos()
-
 
 
 # --------------------------------------------------
@@ -168,41 +168,35 @@ def filtrar_contratos(
     if contrato_texto and str(contrato_texto).strip():
         termo = str(contrato_texto).strip().lower()
         dff = dff[
-            dff["Contrato"]
-            .astype(str)
-            .str.lower()
-            .str.contains(termo, na=False)
+            dff["Contrato"].astype(str).str.lower().str.contains(termo, na=False)
         ]
 
     # Objeto (texto) - busca parcial conforme digitação
     if objeto_texto and str(objeto_texto).strip():
         termo = str(objeto_texto).strip().lower()
         dff = dff[
-            dff["Objeto"]
-            .astype(str)
-            .str.lower()
-            .str.contains(termo, na=False)
+            dff["Objeto"].astype(str).str.lower().str.contains(termo, na=False)
         ]
 
-    # Setor - agora aceita lista de valores
+    # Setor - aceita lista de valores
     if setor:
         if isinstance(setor, str):
             setor = [setor]
         dff = dff[dff["Setor"].isin(setor)]
 
-    # Grupo - agora aceita lista de valores
+    # Grupo - aceita lista de valores (mesmo que agora só exista 1)
     if grupo:
         if isinstance(grupo, str):
             grupo = [grupo]
         dff = dff[dff["Grupo"].isin(grupo)]
 
-    # Empresa - agora aceita lista de valores
+    # Empresa - aceita lista de valores
     if empresa:
         if isinstance(empresa, str):
             empresa = [empresa]
         dff = dff[dff["Empresa Contratada"].isin(empresa)]
 
-    # Status - agora aceita lista de valores
+    # Status - aceita lista de valores
     if status_vig:
         if isinstance(status_vig, str):
             status_vig = [status_vig]
@@ -222,7 +216,6 @@ def filtrar_contratos(
     return dff
 
 
-
 dropdown_style = {
     "color": "black",
     "width": "100%",
@@ -238,7 +231,6 @@ input_style = {
     "fontSize": "12px",
     "marginBottom": "6px",
 }
-
 
 # --------------------------------------------------
 # Estilo dos botões (fundo azul, texto branco)
@@ -256,9 +248,8 @@ botao_style = {
 }
 
 
-
 # --------------------------------------------------
-# Layout (Contrato e Objeto são Inputs de texto com busca em tempo real)
+# Layout
 # --------------------------------------------------
 layout = html.Div(
     children=[
@@ -345,8 +336,12 @@ layout = html.Div(
                                 dcc.Dropdown(
                                     id="filtro_empresa",
                                     options=[
-                                        {"label": str(empresa)[:80] + "..." if len(str(empresa)) > 80 else str(empresa), 
-                                         "value": str(empresa)}
+                                        {
+                                            "label": str(empresa)[:80] + "..."
+                                            if len(str(empresa)) > 80
+                                            else str(empresa),
+                                            "value": str(empresa),
+                                        }
                                         for empresa in sorted(
                                             df_contratos_base["Empresa Contratada"]
                                             .dropna()
@@ -439,15 +434,14 @@ layout = html.Div(
                 ),
             ],
         ),
-
         dash_table.DataTable(
             id="tabela_contratos",
             columns=[
                 {
-                    "name": "Contrato", 
+                    "name": "Contrato",
                     "id": "Contrato_Link",
                     "type": "text",
-                    "presentation": "markdown"
+                    "presentation": "markdown",
                 },
                 {"name": "Setor", "id": "Setor"},
                 {"name": "Grupo", "id": "Grupo"},
@@ -487,49 +481,34 @@ layout = html.Div(
                 "zIndex": 5,
             },
             style_cell_conditional=[
-                {
-                    "if": {"column_id": "Contrato_Link"},
-                    "textAlign": "center",
-                },
+                {"if": {"column_id": "Contrato_Link"}, "textAlign": "center"},
             ],
             style_data_conditional=[
                 # Zebra: linhas pares/ímpares
-                {
-                    "if": {"row_index": "odd"},
-                    "backgroundColor": "#f0f0f0",
-                },
-                {
-                    "if": {"row_index": "even"},
-                    "backgroundColor": "white",
-                },
+                {"if": {"row_index": "odd"}, "backgroundColor": "#f0f0f0"},
+                {"if": {"row_index": "even"}, "backgroundColor": "white"},
                 # Status = Vencido
                 {
-                    "if": {
-                        "filter_query": '{Status da Vigência} = "Vencido"',
-                    },
+                    "if": {"filter_query": '{Status da Vigência} = "Vencido"'},
                     "backgroundColor": "#ffcccc",
                     "color": "black",
                 },
                 # Status = Próximo do Vencimento
                 {
                     "if": {
-                        "filter_query": '{Status da Vigência} = "Próximo do Vencimento"',
+                        "filter_query": '{Status da Vigência} = "Próximo do Vencimento"'
                     },
                     "backgroundColor": "#ffffcc",
                     "color": "black",
                 },
             ],
             css=[
-                dict(
-                    selector="p",
-                    rule="margin: 0; text-align: center;",
-                ),
+                dict(selector="p", rule="margin: 0; text-align: center;"),
             ],
         ),
         dcc.Store(id="store_dados_contratos"),
     ]
 )
-
 
 
 # --------------------------------------------------
@@ -544,7 +523,7 @@ layout = html.Div(
     Input("filtro_grupo", "value"),
     Input("filtro_empresa", "value"),
     Input("filtro_status_vig", "value"),
-    prevent_initial_call=False  # Permitir chamada inicial
+    prevent_initial_call=False,
 )
 def atualizar_tabela_contratos(
     contrato_texto,
@@ -554,10 +533,9 @@ def atualizar_tabela_contratos(
     empresa,
     status_vig,
 ):
-    # VERIFICAÇÃO: Só executa se estiver na página de contratos
     if not verificar_pagina_contratos():
         raise PreventUpdate
-    
+
     dff = filtrar_contratos(
         contrato_texto,
         objeto_texto,
@@ -569,20 +547,25 @@ def atualizar_tabela_contratos(
 
     dff = dff.copy()
 
-    # Verificar se a coluna de link existe e criar coluna com hyperlink
+    # Criar coluna com hyperlink HTML para a coluna Contrato
     if "Link Comprasnet" in dff.columns:
-        # Criar coluna com hyperlink HTML para a coluna Contrato
         dff["Contrato_Link"] = dff.apply(
-            lambda row: f'<a href="{row["Link Comprasnet"]}" target="_blank" style="color: #0b2b57; text-decoration: none; font-weight: bold;">{row["Contrato"]}</a>' 
-            if pd.notna(row["Link Comprasnet"]) and str(row["Link Comprasnet"]).strip() and str(row["Link Comprasnet"]).startswith(('http://', 'https://'))
+            lambda row: (
+                f'<a href="{row["Link Comprasnet"]}" target="_blank" '
+                f'style="color: #0b2b57; text-decoration: none; font-weight: bold;">'
+                f'{row["Contrato"]}</a>'
+            )
+            if pd.notna(row["Link Comprasnet"])
+            and str(row["Link Comprasnet"]).strip()
+            and str(row["Link Comprasnet"]).startswith(("http://", "https://"))
             else row["Contrato"],
-            axis=1
+            axis=1,
         )
     else:
         dff["Contrato_Link"] = dff["Contrato"]
 
     cols = [
-        "Contrato_Link",  # Usar a coluna com link
+        "Contrato_Link",
         "Setor",
         "Grupo",
         "Objeto",
@@ -595,7 +578,6 @@ def atualizar_tabela_contratos(
     cols = [c for c in cols if c in dff.columns]
 
     return dff[cols].to_dict("records"), dff.to_dict("records")
-
 
 
 # --------------------------------------------------
@@ -611,7 +593,7 @@ def atualizar_tabela_contratos(
     Input("filtro_grupo", "value"),
     Input("filtro_empresa", "value"),
     Input("filtro_status_vig", "value"),
-    prevent_initial_call=False  # Permitir chamada inicial
+    prevent_initial_call=False,
 )
 def atualizar_opcoes_filtros(
     contrato_texto,
@@ -621,10 +603,9 @@ def atualizar_opcoes_filtros(
     empresa,
     status_vig,
 ):
-    # VERIFICAÇÃO: Só executa se estiver na página de contratos
     if not verificar_pagina_contratos():
         raise PreventUpdate
-    
+
     dff = filtrar_contratos(
         contrato_texto,
         objeto_texto,
@@ -634,21 +615,18 @@ def atualizar_opcoes_filtros(
         status_vig,
     )
 
-    # Opções para Setor
     op_setor = [
         {"label": str(s), "value": str(s)}
         for s in sorted(dff["Setor"].dropna().unique())
         if str(s).strip()
     ]
 
-    # Opções para Grupo
     op_grupo = [
         {"label": str(g), "value": str(g)}
         for g in sorted(dff["Grupo"].dropna().unique())
         if str(g).strip()
     ]
 
-    # Opções para Empresa (com truncamento para textos longos)
     op_empresa = []
     for emp in sorted(dff["Empresa Contratada"].dropna().unique()):
         emp_str = str(emp)
@@ -656,7 +634,6 @@ def atualizar_opcoes_filtros(
         op_empresa.append({"label": label, "value": emp_str})
 
     return op_setor, op_grupo, op_empresa
-
 
 
 # --------------------------------------------------
@@ -673,13 +650,10 @@ def atualizar_opcoes_filtros(
     prevent_initial_call=True,
 )
 def limpar_filtros_contratos(n):
-    # VERIFICAÇÃO: Só executa se estiver na página de contratos
     if not verificar_pagina_contratos():
         raise PreventUpdate
-    
-    # Retorna string vazia para Inputs e lista vazia para Dropdowns multi
-    return "", "", [], [], [], []
 
+    return "", "", [], [], [], []
 
 
 # --------------------------------------------------
@@ -693,7 +667,6 @@ wrap_style_data = ParagraphStyle(
     textColor=colors.black,
 )
 
-
 wrap_style_header = ParagraphStyle(
     name="wrap_contratos_header",
     fontSize=7,
@@ -703,15 +676,12 @@ wrap_style_header = ParagraphStyle(
 )
 
 
-
 def wrap_data(text):
     return Paragraph(str(text), wrap_style_data)
 
 
-
 def wrap_header(text):
     return Paragraph(str(text), wrap_style_header)
-
 
 
 # --------------------------------------------------
@@ -724,10 +694,9 @@ def wrap_header(text):
     prevent_initial_call=True,
 )
 def gerar_pdf_contratos(n, dados_contratos):
-    # VERIFICAÇÃO: Só executa se estiver na página de contratos
     if not verificar_pagina_contratos():
         raise PreventUpdate
-    
+
     if not n or not dados_contratos:
         return None
 
@@ -748,7 +717,6 @@ def gerar_pdf_contratos(n, dados_contratos):
     styles = getSampleStyleSheet()
     story = []
 
-    # Data / Hora
     tz_brasilia = timezone("America/Sao_Paulo")
     data_hora = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
 
@@ -772,7 +740,6 @@ def gerar_pdf_contratos(n, dados_contratos):
     )
     story.append(Spacer(1, 0.15 * inch))
 
-    # Cabeçalho: Logo | Texto | Logo
     logo_esq = (
         Image("assets/brasaobrasil.png", 1.2 * inch, 1.2 * inch)
         if os.path.exists("assets/brasaobrasil.png")
@@ -802,11 +769,7 @@ def gerar_pdf_contratos(n, dados_contratos):
 
     cabecalho = Table(
         [[logo_esq, instituicao, logo_dir]],
-        colWidths=[
-            1.4 * inch,
-            4.2 * inch,
-            1.4 * inch,
-        ],
+        colWidths=[1.4 * inch, 4.2 * inch, 1.4 * inch],
     )
 
     cabecalho.setStyle(
@@ -823,7 +786,6 @@ def gerar_pdf_contratos(n, dados_contratos):
     story.append(cabecalho)
     story.append(Spacer(1, 0.25 * inch))
 
-    # Título
     titulo = Paragraph(
         "RELATÓRIO DE CONTRATOS ATIVOS - UASG: 153030 - Campus Itajubá<br/>",
         ParagraphStyle(
@@ -838,13 +800,9 @@ def gerar_pdf_contratos(n, dados_contratos):
     story.append(titulo)
     story.append(Spacer(1, 0.2 * inch))
 
-    story.append(
-        Paragraph(f"Total de registros: {len(df)}", styles["Normal"])
-    )
+    story.append(Paragraph(f"Total de registros: {len(df)}", styles["Normal"]))
     story.append(Spacer(1, 0.15 * inch))
 
-    # Tabela
-    # Usar a coluna original "Contrato" para o PDF, não a de link
     cols = [
         "Contrato",
         "Setor",
@@ -871,17 +829,16 @@ def gerar_pdf_contratos(n, dados_contratos):
     for _, row in df_pdf[cols].iterrows():
         table_data.append([wrap_data(row[c]) for c in cols])
 
-    page_width = pagesize[0] - 0.6 * inch
     col_widths = [
-        0.8 * inch,   # Contrato
-        0.9 * inch,   # Setor
-        0.9 * inch,   # Grupo
-        2.2 * inch,   # Objeto
-        1.8 * inch,   # Empresa Contratada
-        1.0 * inch,   # Início da Vigência
-        1.1 * inch,   # Término da Execução
-        1.1 * inch,   # Término da Vigência
-        1.1 * inch,   # Status da Vigência
+        0.8 * inch,  # Contrato
+        0.9 * inch,  # Setor
+        0.9 * inch,  # Grupo
+        2.2 * inch,  # Objeto
+        1.8 * inch,  # Empresa Contratada
+        1.0 * inch,  # Início da Vigência
+        1.1 * inch,  # Término da Execução
+        1.1 * inch,  # Término da Vigência
+        1.1 * inch,  # Status da Vigência
     ]
 
     tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -897,10 +854,14 @@ def gerar_pdf_contratos(n, dados_contratos):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING", (0, 0), (-1, -1), 2),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
+        (
+            "ROWBACKGROUNDS",
+            (0, 1),
+            (-1, -1),
+            [colors.white, colors.HexColor("#f0f0f0")],
+        ),
     ]
 
-    # Cores por status
     for i, status in enumerate(status_values, 1):
         status_str = str(status).strip().lower()
         if "vencido" in status_str:
@@ -925,5 +886,6 @@ def gerar_pdf_contratos(n, dados_contratos):
     buffer.seek(0)
 
     return dcc.send_bytes(
-        buffer.getvalue(), 
-        f"relatorio_contratos_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf")
+        buffer.getvalue(),
+        f"relatorio_contratos_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf",
+    )
